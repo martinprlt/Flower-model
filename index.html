@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#070304" />
+    <meta name="color-scheme" content="dark" />
+    <!-- Icono vacío: evita el 404 de /favicon.ico en la consola. -->
+    <link rel="icon" href="data:," />
+    <title>Una rosa que no puede marchitarse</title>
+    <meta
+      name="description"
+      content="Una rosa generada íntegramente a partir de ecuaciones paramétricas. Sin modelos, sin imágenes: sólo matemáticas."
+    />
+    <!--
+      Estilo crítico en línea. El fondo del documento queda pintado antes de que
+      cargue el bundle, así que no existe flash blanco ni salto de layout.
+      Debe coincidir con PALETTE.bgTop en src/config.ts.
+    -->
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #070304;
+      }
+      #root {
+        height: 100%;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

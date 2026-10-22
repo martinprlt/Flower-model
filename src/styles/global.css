@@ -1,0 +1,439 @@
+/**
+ * global.css
+ *
+ * Una sola pantalla. No hay scroll, no hay secciones, no hay pie de página.
+ * Todo lo que sobresale de la ventana (safe areas) se respeta y lo que no
+ * debe moverse no se mueve: overflow:hidden + overscroll-behavior:none +
+ * touch-action sobre el lienzo.
+ */
+
+:root {
+  --bg: #070304;
+  --ink: #ecdcdc;
+  --ink-soft: #b79ba1;
+  --ink-faint: #7c5f66;
+  --accent: #e14b63;
+
+  /* Serif editorial: los conserjes del sistema ya tienen buen gusto. */
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua',
+    Georgia, 'Times New Roman', serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  overflow: hidden;
+}
+
+body {
+  /* dvh, no vh: en iOS la barra inferior crece y encoge y vh miente. */
+  height: 100dvh;
+}
+
+#root {
+  height: 100dvh;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible {
+  outline: 1px solid rgba(225, 75, 99, 0.75);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Contenedor propio del lienzo: no se toca el posicionamiento interno de
+   R3F, sólo se le da la caja y se le apaga el desplazamiento táctil. */
+.scene {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+/* ── Vignette ────────────────────────────────────────────────────────────
+   En CSS a propósito: no cuesta una pasada de render y va por encima de todo,
+   incluso del bloom. */
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(
+    ellipse 78% 74% at 50% 46%,
+    rgba(0, 0, 0, 0) 34%,
+    rgba(0, 0, 0, 0.28) 74%,
+    rgba(0, 0, 0, 0.62) 100%
+  );
+}
+
+/* ── Punto de carga ─────────────────────────────────────────────────────
+   No hay spinner. Un punto tenue que respira y nada más. */
+.loading-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: grid;
+  place-items: center;
+}
+
+.loading-dot span {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* ── Intro ─────────────────────────────────────────────────────────────── */
+.intro-text {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(86vw, 34rem);
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.05rem, 4.4vw, 1.75rem);
+  line-height: 1.45;
+  letter-spacing: 0.012em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+/* ── Dedicatoria ─────────────────────────────────────────────────────────
+   Tres escalas muy distintas. Esa diferencia es lo que hace que se lea como
+   una nota y no como un titular. */
+.dedication {
+  position: absolute;
+  left: 50%;
+  bottom: calc(17% + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(90vw, 32rem);
+  text-align: center;
+  pointer-events: none;
+}
+
+.dedication__message {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.02rem, 4vw, 1.5rem);
+  line-height: 1.62;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  white-space: pre-line;
+  text-wrap: balance;
+}
+
+.dedication__to {
+  margin: clamp(1.1rem, 4.5vh, 2rem) 0 0;
+  font-family: var(--font-sans);
+  font-size: clamp(0.72rem, 3vw, 0.88rem);
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.86;
+}
+
+.dedication__from {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(0.66rem, 2.6vw, 0.78rem);
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+
+/* ── Pista ─────────────────────────────────────────────────────────────── */
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(5% + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 4;
+  font-family: var(--font-sans);
+  font-size: clamp(0.64rem, 2.7vw, 0.76rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  opacity: 0.72;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/* ── Esquinas ──────────────────────────────────────────────────────────── */
+.corners {
+  position: absolute;
+  top: calc(10px + var(--safe-t));
+  right: calc(10px + var(--safe-r));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.corner-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 1;
+  /* Semitransparente de verdad: está para que se encuentre, no para que se
+     vea. */
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.35s ease, border-color 0.35s ease, transform 0.35s ease;
+}
+
+.corner-btn:active {
+  transform: scale(0.94);
+}
+
+.corner-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.26);
+}
+
+.corner-btn--audio.is-on {
+  color: var(--accent);
+  border-color: rgba(225, 75, 99, 0.55);
+}
+
+/* ── Panel matemático ──────────────────────────────────────────────────── */
+.math-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(12px + var(--safe-t)) calc(12px + var(--safe-r)) calc(12px + var(--safe-b))
+    calc(12px + var(--safe-l));
+  background: rgba(4, 2, 3, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.math-modal {
+  position: relative;
+  width: min(100%, 30rem);
+  max-height: 86dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(1.25rem, 5vw, 2rem);
+  border-radius: 4px;
+  background: rgba(16, 4, 8, 0.92);
+  border: 1px solid rgba(225, 75, 99, 0.16);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.math-close {
+  position: absolute;
+  top: calc(6px + var(--safe-t));
+  right: calc(10px + var(--safe-r));
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  transition: color 0.25s ease;
+}
+
+.math-close:hover {
+  color: var(--ink);
+}
+
+.math-title {
+  margin: 0 2.6rem 1.4rem 0;
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.05rem, 4.4vw, 1.3rem);
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.math-equations {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+.math-equation__label {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.eq {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.1rem 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* KaTeX en su font-size nativo, pero acotado para móvil. */
+.eq .katex-display {
+  margin: 0;
+  text-align: left;
+}
+
+.eq .katex {
+  font-size: 0.95em;
+  color: var(--ink);
+}
+
+.math-blurb {
+  margin: 1.4rem 0 1.1rem;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: clamp(0.78rem, 3.2vw, 0.9rem);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* ── Selector ROSA | MATEMÁTICA ────────────────────────────────────────── */
+.mode-select {
+  display: flex;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mode-tab {
+  flex: 1;
+  min-height: 44px;
+  padding: 0.6rem 0.4rem;
+  font-family: var(--font-sans);
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: transparent;
+  transition: color 0.3s ease, background 0.3s ease;
+}
+
+.mode-tab + .mode-tab {
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.mode-tab.is-active {
+  color: var(--ink);
+  background: rgba(225, 75, 99, 0.18);
+}
+
+/* ── Depuración ────────────────────────────────────────────────────────── */
+.debug-panel {
+  position: absolute;
+  left: calc(8px + var(--safe-l));
+  top: calc(8px + var(--safe-t));
+  z-index: 20;
+  margin: 0;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #9fe8ff;
+  background: rgba(0, 8, 12, 0.72);
+  border: 1px solid rgba(92, 200, 255, 0.28);
+  border-radius: 3px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+@media (min-width: 900px) and (min-height: 640px) {
+  .corner-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1.1rem;
+  }
+
+  .dedication {
+    bottom: calc(14% + var(--safe-b));
+  }
+}
+
+/* Si la ventana es muy corta, la dedicatoria y la rosa se pisarían: se
+   prioriza la rosa. */
+@media (max-height: 520px) {
+  .dedication {
+    bottom: calc(6% + var(--safe-b));
+  }
+
+  .dedication__message {
+    font-size: clamp(0.9rem, 3.4vh, 1.1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.12s !important;
+  }
+}
