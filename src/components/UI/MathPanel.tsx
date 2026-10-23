@@ -17,36 +17,59 @@ const EQUATIONS: { title: string; tex: string }[] = [
     tex: String.raw`\varphi(\theta) = \frac{\pi}{2}\,e^{-\frac{\theta}{8\pi}}`,
   },
   {
+    title: 'Elevación a lo largo del pétalo',
+    tex: String.raw`\begin{aligned}
+      \psi(q) &= \varphi\!\left(\theta(k_h)\right) + \lambda(k_h)\,q - \kappa(k_h)\,q^{2} \\
+      \kappa(k_h) &= \kappa_0\left[\chi(1-k_h)^{2} + \left(1-\chi(1-k_h)^{2}\right)k_h^{1.6}\right] \\
+      \lambda(k_h) &= \lambda_0\max\!\left(0,\,1-\tfrac{k_h}{0.5}\right)^{2}
+    \end{aligned}`,
+  },
+  {
     title: 'Perfil de contorno de cada pétalo',
-    tex: String.raw`X(\theta) = 1 - \frac{1}{2}\left[\frac{5}{4}\left(1 - \frac{\theta \bmod 2\pi}{\pi}\right)^{2} - \frac{1}{4}\right]^{2}`,
+    tex: String.raw`\begin{aligned}
+      X(\theta) &= 1 - \frac{1}{2}\left[\frac{5}{4}\left(1 - \frac{\theta \bmod 2\pi}{\pi}\right)^{2} - \frac{1}{4}\right]^{2} \\
+      W(q) &= L\,w\left[0.52 + 0.48\sin\!\left(\pi q^{0.8}\right)\right]\left(0.8 + 0.2\,X_n\right)
+    \end{aligned}`,
   },
   {
     title: 'Cómo recorre X el pétalo n',
-    tex: String.raw`\theta = 2\pi\left(n + \tfrac{1}{2}q\right),\qquad q \in [0,1]`,
+    tex: String.raw`\theta = 2\pi\left(n + \tfrac{1}{2}q\right),\qquad q \in [0,1],\qquad X_n = \frac{X-0.5}{0.5}`,
   },
   {
-    title: 'Distribución de los pétalos',
-    tex: String.raw`\beta_n = n\cdot\pi\left(3-\sqrt{5}\right) \approx n\cdot 137.507^{\circ}`,
+    title: 'Reparto de los pétalos en verticilos',
+    tex: String.raw`\beta_0 = \frac{2\pi\,(j + \rho_k)}{m_k} + 0.45\left(1-k_h\right)^{2}q,\qquad j = 0 \dots m_k - 1`,
   },
   {
-    title: 'Espina del pétalo',
+    title: 'Espina del pétalo (tangente integrada)',
     tex: String.raw`\begin{aligned}
-      r(q) &= r_{b} + L\,q^{\,e_{r}}\cos\varphi_k \\
-      h(q) &= h_{b} - L\,q^{\,e_{h}}\sin\varphi_k
+      r(q) &= r_{b}(k_h) + L\int_{0}^{q}\cos\psi(s)\,\mathrm{d}s \\
+      h(q) &= h_{b}(k_h) + L\int_{0}^{q}\sin\psi(s)\,\mathrm{d}s
+    \end{aligned}`,
+  },
+  {
+    title: 'Receptáculo que cierra el ápice',
+    tex: String.raw`\begin{aligned}
+      r_b(k_h) &= r_{\min} + (r_{\max}-r_{\min})\sin\!\left(\chi_{\max}k_h^{1.35}\right) \\
+      h_b(k_h) &= y_{\text{top}} - y_{\text{drop}}\left[1-\cos\!\left(\chi_{\max}k_h^{1.35}\right)\right]
     \end{aligned}`,
   },
   {
     title: 'Marco de la sección',
-    tex: String.raw`\vec e_1 = \begin{pmatrix}\cos\varphi\cos\beta\\ -\sin\varphi\\ \cos\varphi\sin\beta\end{pmatrix},
+    tex: String.raw`\vec e_1 = \begin{pmatrix}\cos\psi\cos\beta\\ \sin\psi\\ \cos\psi\sin\beta\end{pmatrix},
       \quad
       \vec e_2 = \begin{pmatrix}\sin\beta\\ 0\\ -\cos\beta\end{pmatrix},
       \quad
-      \vec e_3 = \begin{pmatrix}\sin\varphi\cos\beta\\ \cos\varphi\\ \sin\varphi\sin\beta\end{pmatrix}`,
+      \vec e_3 = \begin{pmatrix}-\sin\psi\cos\beta\\ \cos\psi\\ -\sin\psi\sin\beta\end{pmatrix}`,
   },
   {
-    title: 'Punto de la flor',
-    tex: String.raw`\vec p = \begin{pmatrix} r\cos\beta \\ h \\ r\sin\beta \end{pmatrix}
-      + \vec e_2\,w\sin\psi - \vec e_3\,c\,w\cos\psi`,
+    title: 'Punto de la flor y envoltura del capullo',
+    tex: String.raw`\begin{aligned}
+      d &= \left(c\cos\psi_s - \rho_{\text{ref}}\right)W(q)\sin\!\left(\tfrac{q^{0.45}\pi}{2}\right) \\
+      \ell &= W(q)\sin\!\left(\tfrac{q^{0.45}\pi}{2}\right)\sin\psi_s \\
+      B &= S\!\left(S\!\left(\max\!\left(0,1-\tfrac{k_h}{0.5}\right)\right)\right),\quad S(t)=t^{2}(3-2t) \\
+      \rho &= \sqrt{(r+d)^{2} + (B\ell)^{2}},\qquad \alpha = \beta + \operatorname{atan2}\!\left(B\ell,\,r+d\right) \\
+      \vec p &= \begin{pmatrix}\rho\cos\alpha\\ h + \vec e_3\cdot d\\ \rho\sin\alpha\end{pmatrix}
+    \end{aligned}`,
   },
 ]
 

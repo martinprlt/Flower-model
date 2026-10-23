@@ -80,10 +80,20 @@ export default function App() {
     const id = requestAnimationFrame(() => {
       getRose(quality.tier)
       timeline.now = performance.now()
-      timeline.phase = 'INTRO'
-      timeline.enteredAt = timeline.now
-      setReady(true)
-      setPhase('INTRO')
+      const url = new URLSearchParams(window.location.search)
+      const skip = url.get('skip') === 'true'
+      if (skip) {
+        timeline.phase = 'INTERACTIVE'
+        timeline.enteredAt = timeline.now - schedule.grow - 10000
+        setReady(true)
+        setPhase('INTERACTIVE')
+        setShowDedication(true)
+      } else {
+        timeline.phase = 'INTRO'
+        timeline.enteredAt = timeline.now
+        setReady(true)
+        setPhase('INTRO')
+      }
     })
     return () => cancelAnimationFrame(id)
   }, [quality.tier])

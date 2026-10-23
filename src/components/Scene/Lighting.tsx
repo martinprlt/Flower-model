@@ -9,9 +9,11 @@ interface LightingProps {
 /**
  * Iluminación cinematográfica, no demo de GPU.
  *
- *  · un ambiente casi apagado, para que haya negros de verdad;
+ *  · un relleno ambiente BORGOÑA: el key no entra en el capullo, y sin este
+ *    piso el interior de los pétalos caía a negro y se leía como un agujero.
+ *    Es rojo, no gris, para que las sombras sigan siendo carmesí;
  *  · una key cálida desde arriba/lateral, única fuente de sombra;
- *  · un fill rojizo muy suave que no sube los negros;
+ *  · un fill rojizo trasero que separa planos sin castigar los negros;
  *  · un rim trasero que separa la silueta del fondo oscuro.
  *
  * Las sombras están aquí por un motivo concreto: son lo que hace que se
@@ -21,7 +23,9 @@ interface LightingProps {
 export function Lighting({ shadows, mapSize }: LightingProps) {
   return (
     <>
-      <ambientLight intensity={0.3} color={PALETTE.lightAmbient} />
+      {/* En low no hay shadow map: el interior ya recibe el key y no necesita
+          un piso tan alto. Con 8 se aplanaría; con 4 conserva volumen. */}
+      <ambientLight intensity={shadows ? 8 : 5.5} color={PALETTE.lightFill} />
 
       {/* Key: la única que proyecta sombra. */}
       <directionalLight

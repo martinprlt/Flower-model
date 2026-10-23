@@ -136,10 +136,17 @@ section('2 · φ(θ) — elevación de los pétalos')
     prevL = L
   }
   console.log(rows.join('\n'))
+
+  // El borde sale EMPINADO y se dobla después: la punta es la que se cuelga.
   const rim = deg(rosePhi(p.thetaMap))
+  const rimTip = deg(roseSpine(p, p.petals - 1, 1).phi)
+  const budTip = deg(roseSpine(p, 0, 1).phi)
+
   check('φ estrictamente decreciente y L creciente (interior⊂exterior)', monotone)
   check('centro ≈ 90° (capullo cerrado)', Math.abs(deg(rosePhi(0)) - 90) < 1e-9)
-  check('borde muy abierto (8°–25°)', rim > 8 && rim < 25, `${rim.toFixed(1)}°`)
+  check('el capullo es vertical (ψ > 80°)', budTip > 80, `${budTip.toFixed(1)}°`)
+  check('el borde sale empinado (25°–75°)', rim > 25 && rim < 75, `${rim.toFixed(1)}°`)
+  check('la punta del borde se cuelga (ψ < 0°)', rimTip < 0, `${rimTip.toFixed(1)}°`)
   check('más de la mitad de los pétalos por encima de 45°', (() => {
     let up = 0
     for (let n = 0; n < p.petals; n++) if (deg(rosePhiPetal(p, n)) > 45) up++
@@ -294,20 +301,98 @@ for (const tier of tiers) {
   console.log(`   relleno de vóxeles ${(fill * 100).toFixed(2)}%  (la rosa es una CORAZA, no un sólido: se espera poco)`)
   check('relleno sano (ni hueco, ni bola maciza)', fill > 0.0002 && fill < 0.15, `${(fill * 100).toFixed(2)}%`)
 
-  // El winding debe mirar hacia afuera (normales de cara vs. centro).
-  let outward = 0
-  for (let f = 0; f < g.triangleCount; f += 3) {
-    const i0 = g.index[f] * 3, i1 = g.index[f + 1] * 3, i2 = g.index[f + 2] * 3
-    const e1 = [g.position[i1] - g.position[i0], g.position[i1 + 1] - g.position[i0 + 1], g.position[i1 + 2] - g.position[i0 + 2]]
-    const e2 = [g.position[i2] - g.position[i0], g.position[i2 + 1] - g.position[i0 + 1], g.position[i2 + 2] - g.position[i0 + 2]]
-    outward +=
-      (e1[1] * e2[2] - e1[2] * e2[1]) * (g.position[i0] + g.position[i1] + g.position[i2]) / 3 +
-      (e1[2] * e2[0] - e1[0] * e2[2]) * (g.position[i0 + 1] + g.position[i1 + 1] + g.position[i2 + 1]) / 3 +
-      (e1[0] * e2[1] - e1[1] * e2[0]) * (g.position[i0 + 2] + g.position[i1 + 2] + g.position[i2 + 2]) / 3
+  // ORIENTACIÓN, por pétalo.
+  //
+  // Cada pétalo es una cáscara independiente, así que su orientación se decide
+  // por separado, y el criterio es LOCAL: la cara CONVEXA del pétalo —la que ve
+  // la cámara— es la que mira hacia fuera de su propia espina.
+  //
+  // El test global anterior ("la normal de cara apunta lejos del centro del
+  // bbox") no sirve aquí: la flor no es convexa y ese test decidía por toda la
+  // flor a la vez, dejando las caras convexas mirando al revés.
+  let convexOk = 0
+  for (let n = 0; n < p.petals; n++) {
+    let s = 0
+    for (let qi = 1; qi < p.qSeg; qi++) {
+      const row = n * p.qSeg + qi
+      const sp = roseSpine(p, n, qi / (p.qSeg - 1))
+      const cx = sp.r * sp.cosBeta
+      const cy = sp.h
+      const cz = sp.r * sp.sinBeta
+      for (let c = 0; c < cols; c++) {
+        const i = (row * cols + c) * 3
+        s +=
+          (g.position[i] - cx) * g.normal[i] +
+          (g.position[i + 1] - cy) * g.normal[i + 1] +
+          (g.position[i + 2] - cz) * g.normal[i + 2]
+      }
+    }
+    if (s > 0) convexOk++
   }
-  const c = g.bounds.center
-  check('winding hacia afuera', outward > 0, `sum ${outward.toExponential(2)}`)
-  void c
+  check('la cara convexa de cada pétalo mira hacia fuera de su espina', convexOk === p.petals, `${convexOk}/${p.petals}`)
+
+  // PLIEGUES: dos caras adyacentes de la MISMA cuadrícula que cambian de
+  // normal más de 90° describen una superficie que se dobla sobre sí misma.
+  // Es el defecto que producía el capullo viejo (dAngle de 10–17 rad): pasaba
+  // las comprobaciones de NaN y de área, pero se veía como cintas retorcidas.
+  // Se excluye la fila q = 0, que es una base colapsada a un punto.
+  {
+    const faceN = (a, b, c) => {
+      const e1 = [g.position[b] - g.position[a], g.position[b + 1] - g.position[a + 1], g.position[b + 2] - g.position[a + 2]]
+      const e2 = [g.position[c] - g.position[a], g.position[c + 1] - g.position[a + 1], g.position[c + 2] - g.position[a + 2]]
+      const nx = e1[1] * e2[2] - e1[2] * e2[1]
+      const ny = e1[2] * e2[0] - e1[0] * e2[2]
+      const nz = e1[0] * e2[1] - e1[1] * e2[0]
+      const len = Math.hypot(nx, ny, nz) || 1
+      return [nx / len, ny / len, nz / len]
+    }
+    let folds = 0
+    let edges = 0
+    let worstDot = 1
+    for (let n = 0; n < p.petals; n++) {
+      for (let qi = 1; qi < p.qSeg - 1; qi++) {
+        const row = n * p.qSeg + qi
+        for (let c = 0; c < p.arcSeg; c++) {
+          const a = (row * cols + c) * 3
+          const b = (row * cols + c + 1) * 3
+          const d = ((row + 1) * cols + c) * 3
+          const e = ((row + 1) * cols + c + 1) * 3
+          const nA = faceN(a, e, b)
+          const nB = faceN(a, d, e)
+          const dot = nA[0] * nB[0] + nA[1] * nB[1] + nA[2] * nB[2]
+          edges++
+          if (dot < 0.2) folds++
+          if (dot < worstDot) worstDot = dot
+        }
+      }
+    }
+    check('superficie sin pliegues (>90° entre caras vecinas)', folds === 0, `${folds}/${edges}, dot min ${worstDot.toFixed(3)}`)
+  }
+
+  // CENTRO COMPACTO Y CERRADO: el primer verticilo nace junto al eje y no se
+  // extiende más de un tercio del radio de la flor. Sin esto, un centro que
+  // "pasa las pruebas" puede seguir siendo una torre o un anillo alrededor de
+  // un agujero.
+  {
+    let baseR = 0
+    let innerMaxR = 0
+    let allMaxR = 0
+    for (let c = 0; c < cols; c++) {
+      baseR = Math.max(baseR, Math.hypot(g.position[c * 3], g.position[c * 3 + 2]))
+    }
+    for (let qi = 0; qi < p.qSeg; qi++) {
+      for (let c = 0; c < cols; c++) {
+        const i = (qi * cols + c) * 3
+        innerMaxR = Math.max(innerMaxR, Math.hypot(g.position[i], g.position[i + 2]))
+      }
+    }
+    for (let i = 0; i < g.vertexCount; i++) {
+      allMaxR = Math.max(allMaxR, Math.hypot(g.position[i * 3], g.position[i * 3 + 2]))
+    }
+    const ratio = innerMaxR / Math.max(allMaxR, 1e-9)
+    check('el primer verticilo nace en el eje (ápice cerrado)', baseR < 0.3, `r base ${baseR.toFixed(3)}`)
+    check('centro compacto (radio interior < 35 % del total)', ratio < 0.35, `${(ratio * 100).toFixed(1)} %`)
+  }
 
   // Presupuesto de vértices.
   const limit = tier === 'high' ? 20000 : 9000

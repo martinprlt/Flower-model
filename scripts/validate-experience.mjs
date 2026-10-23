@@ -9,6 +9,7 @@
  */
 
 import { frameRose } from '../src/math/geometry.ts'
+import { CAMERA } from '../src/config.ts'
 
 let fails = 0
 const ok = (label, cond, detail = '') => {
@@ -113,7 +114,7 @@ for (const [name, fov, aspect] of [
 ]) {
   const r = Math.SQRT2 / 2
   const b = { min: [-1, -1, -1], max: [1, 1, 1], center: [0, 0, 0], radius: r, aspect: 1.6 }
-  const f = frameRose(b, fov, aspect, 1.24)
+  const f = frameRose(b, fov, aspect, CAMERA.headroom)
 
   const halfFov = (fov * Math.PI) / 360
   const halfH = Math.atan(Math.tan(halfFov) * aspect)
@@ -143,7 +144,7 @@ for (const [name, fov, aspect] of [
 
 {
   const b = { min: [-1, -1, -1], max: [1, 1, 1], center: [0, 0, 0], radius: Math.SQRT2 / 2, aspect: 1.6 }
-  const f = frameRose(b, 34, 1920 / 1080, 1.24)
+  const f = frameRose(b, CAMERA.fov, 1920 / 1080, CAMERA.headroom)
   ok('la distancia es mayor que el radio de la rosa', f.distance > b.radius,
     `${f.distance.toFixed(3)} > ${b.radius.toFixed(3)}`)
   ok('el zoom nunca permite entrar en la geometría', f.minDistance / f.distance > 0.6, `${(f.minDistance / f.distance).toFixed(2)}×`)

@@ -1,12 +1,12 @@
 /**
- * rose.ts — La matemática de la rosa.
+ * rose.ts — La matemática de la rosa (Iteración 2: Realismo Visual).
  *
  * Este módulo NO importa three.js. Sólo devuelve números y typed arrays, de
  * modo que la geometría puede validarse en Node sin navegador y puede
  * modificarse sin tocar una sola línea de render.
  *
  * ─────────────────────────────────────────────────────────────────────────
- *  INTERPRETACIÓN DE LAS ECUACIONES
+ *  INTERPRETACIÓN DE LAS ECUACIONES (CONSERVADAS)
  * ─────────────────────────────────────────────────────────────────────────
  *
  *  1) φ(θ) = (π/2)·e^(−θ/8π)
@@ -17,10 +17,15 @@
  *     pétalo horizontal (totalmente abierto). Como θ crece hacia afuera, los
  *     pétalos interiores quedan casi verticales y los exteriores casi
  *     horizontales, que es exactamente la anatomía de una rosa.
- *     (Curiosidad: integrando dR/dθ = cos φ, dH/dθ = sin φ se obtiene
- *     R(θ) = 8π·[Ci(π/2) − Ci(φ)], H(θ) = 8π·[Si(π/2) − Si(φ)]. O sea que φ
- *     es literalmente el ángulo tangente del perfil generador. No se usa para
- *     la geometría porque R(θ) crece como θ − 13.99, sin cota.)
+ *
+ *     CONVENCIÓN DE SIGNO:
+ *     φ es el ángulo de elevación del plano del pétalo, y la espina SUBE a
+ *     lo largo de él: ψ = 90° ⇒ el pétalo es vertical y el capullo crece
+ *     hacia arriba; ψ = 0° ⇒ el pétalo es horizontal; ψ < 0 ⇒ el pétalo se
+ *     curva hacia abajo. La anatomía de una rosa es exactamente esa
+ *     secuencia, así que ψ = φ − phiDrop·kh² (phiDrop > 0) deja el centro
+ *     vertical en el centro y el borde colgando, que es como se abre una rosa
+ *     de verdad.
  *
  *  2) X(θ) = 1 − ½·[ (5/4)·(1 − (θ mod 2π)/π)² − ¼ ]²
  *
@@ -31,28 +36,31 @@
  *       · valle interior θ = π, X = 0.96875 (cintura de 3.1 %)
  *       · cúspide en θ = 2π, con pendiente ∓2.5 en u (no es derivable)
  *     Es decir: un perfil de UN pétalo, con su meseta plana y su cúspide justo
- *     en la costura del período. Por eso θ = 2π(n + q) — exactamente un
- *     período por pétalo — y la cúspide cae en la unión entre pétalos, donde
- *     uno se esconde bajo el siguiente.
+ *     en la costura del período.
  *
- *  3) (x, y, z) = ( r·sin φ, r·cos φ, X(θ·cos φ − y·sin φ) )
- *
- *     Se descarta. Es inconsistente por tres motivos independientes:
- *       a) usa `y` antes de haberlo definido (está en ambos lados del mismo
- *          par ordenado: circular);
- *       b) resta un ángulo (θ·cos φ) a una coordenada (y·sin φ): unidades
- *          incompatibles;
- *       c) toma X(...) como z directamente, con X ∈ [0.5, 1] ⇒ un disco
- *          ondulado de media unidad de alto, sin número de pétalos y con `r`
- *          nunca asignado. Es justamente el resultado que había que evitar.
- *
- *     Sustituto coherente: elipse de sépalos sobre un domo en espiral
- *     filotáxica (ángulo áureo 137.507°, que es el empaquetamiento más denso
- *     posible y el orden real en que los pétalos de una rosa se distribuyen).
- *     Cada pétalo n es una cáscara cóncava —un "cuenco" aplanado— barrida a lo
- *     largo de una espina cónica; el barrido completo (ψmax = 2π) cerca del
- *     centro sella el capullo, y un barrido parcial (0.58π) en el borde deja
- *     ver el interior del pétalo.
+ * ─────────────────────────────────────────────────────────────────────────
+ *  ITERACIÓN 3 — EL CAPULLO Y LA ANATOMÍA DEL PÉTALO
+ * ─────────────────────────────────────────────────────────────────────────
+ *  · Integración de la tangente para la espina: r(q) y h(q) salen de integrar
+ *    numéricamente (Gauss-Legendre) el vector unitario (cosψ, sinψ). La
+ *    tangente de la curva coincide EXACTAMENTE con e1, eliminando pliegues,
+ *    pellizcos y discontinuidades.
+ *  · Envoltura de capullo por INVOLUTA: la sección se curva alrededor del eje
+ *    con ángulo atan2(lat, r) y radio hypot(r, lat), en vez de sumar
+ *    lat / radio a β. El ángulo queda acotado a ±90° por pétalo: desaparecen
+ *    las 2–3 vueltas que se atravesaban a sí mismas en el centro.
+ *  · Ápice cerrado: el primer verticilo nace prácticamente en el eje
+ *    (chi = chiMax·kh^1.35) y una inclinación apical suave (apexLean) hace
+ *    converger las puntas sobre el centro.
+ *  · Perfil obovado CONTINUO: la anchura nace estrecha, alcanza su máximo a
+ *    ~45–60 % de q y termina en un lóbulo distal redondeado. Antes tomaba el
+ *    máximo de dos ramas y llegaba al borde con la anchura máxima: la última
+ *    fila era un corte recto (la "cinta de papel").
+ *  · Anatomía orgánica: bordes arqueados, ondulación determinista, cuenco y
+ *    márgenes reflejos, con transiciones suaves (sin max/clamps visibles).
+ *  · Verticilos imbricados: 5 anillos con solapamiento amplio, evitando
+ *    huecos entre capas sin amontonar pétalos en el centro.
+ *  · Subdivisiones longitudinales equilibradas (qSeg de 8 a 12).
  * ─────────────────────────────────────────────────────────────────────────
  */
 
@@ -63,131 +71,124 @@ export type Vec3 = [number, number, number]
 export type Tier = 'low' | 'mid' | 'high'
 
 export interface RoseParams {
-  /** Número de pétalos de la espiral. */
+  /** Número de pétalos de la flor. */
   petals: number
   /** Segmentos a lo largo de la espina de cada pétalo. */
   qSeg: number
   /** Segmentos alrededor de la sección transversal de cada pétalo. */
   arcSeg: number
 
-  /** θ con el que se evalúa φ en el pétalo exterior. El knob de "cuánto abre". */
+  /** Número de verticilos (anillos). */
+  whorls: number
+  /** Exponente de crecimiento de verticilos hacia afuera. */
+  whorlExp: number
+
+  /** θ en el pétalo exterior. */
   thetaMap: number
-  /** Exponente que reparte los pétalos entre el centro y el borde. */
+  /** Exponente de elevación. */
   phiExp: number
 
-  /**
-   * Perfil del receptáculo: una CÚPULA, no un cono. El ángulo polar χ va de 0
-   * (cima) a chiMax (borde) y de ahí salen el radio y la altura de la base de
-   * cada pétalo. Un perfil cónico —bases alineadas en una vertical— produce
-   * exactamente la silueta que no queremos: un cucurucho.
-   */
+  /** Cúpula del receptáculo. */
   chiMax: number
   rbMin: number
   rbMax: number
   yTop: number
   yDrop: number
 
-  /** Longitud del pétalo: l0·(bias + (1−bias)·kh^exp). */
+  /** Caída del borde (rad). */
+  phiDrop: number
+  /** Reflejo longitudinal (rad). */
+  curl: number
+  curlExp: number
+  /**
+   * Curvatura mínima de la espina en el centro del capullo, como fracción de
+   * `curl`. Sin esto los pétalos internos suben rectos y forman una corona
+   * abierta en lugar de arquearse sobre el centro.
+   */
+  curlBase: number
+  /**
+   * Inclinación apical de los pétalos internos (rad). Positivo los inclina
+   * hacia el eje en la punta: el capullo se cierra sobre el ápice en lugar de
+   * dejar un agujero. Se desvanece suavemente hacia los verticilos externos.
+   */
+  apexLean: number
+
+  /** Longitud del pétalo. */
   l0: number
   lBias: number
   lExp: number
-  /** Curl: la punta cae más rápido de lo que avanza (hExp > rExp). */
-  rExp: number
-  hExp: number
 
-  /** Semiancho de la sección, proporcional a la longitud del pétalo. */
+  /** Semiancho y perfil. */
   wFrac: number
   wMin: number
-  wTip: number
-  /** Exponente del perfil que abre el pétalo desde la base. */
   ringExp: number
-  /** Profundidad del cuenco como fracción del semiancho. */
   cup: number
-  /** Barrido angular de la sección: 2π (tubo sellado) → 0.58π (cuenco). */
   psiClosed: number
   psiOpen: number
 
-  /** Ondulación determinista del borde del pétalo (radianes). */
+  /** Ondulación y torsión deterministas. */
   azJit: number
-  /** Torcer la sección sobre la espina: t = tw0·kh + tw1·kh·q + tw2·kh·q². */
   tw0: number
   tw1: number
   tw2: number
 }
 
-/**
- * Parámetros de FORMA. Idénticos en los tres tiers: cambiar la resolución no
- * debe cambiar la rosa, sólo cuántos triángulos la describen.
- *
- *  · thetaMap, phiExp  φ: 90° en el centro → ~26° en el borde
- *  · chiMax..yDrop     cúpula del receptáculo (radio y altura de las bases)
- *  · l0, lBias, lExp   longitud del pétalo: corta y erguida en el centro,
- *                      larga y abierta en el borde
- *  · hExp > rExp       la punta cae más rápido de lo que avanza ⇒ se recurre
- *  · wFrac, wTip, wMin semiancho, proporcional a l0 (si el semiancho Depends
- *                      del radio global, los 18 pétalos interiores se quedan
- *                      todos clavados en wMin y amontonan el 60 % de los
- *                      vértices en un radio de 2)
- *  · ringExp           el pétalo nace de un punto; menor ⇒ se abre antes
- *  · cup               profundidad del cuenco, como fracción del semiancho
- *  · psiOpen           barrido angular en el borde (2π = tubo casi sellado)
- *  · azJit, tw0..tw2   ondulación y torcimiento deterministas
- */
 const SHAPE = {
-  // φ va de 90° en el centro a ~12° en el borde. thetaMap/phiExp juntos
-  // controlan DÓNDE se abre: con phiExpa = 2.2 la apertura se concentra en
-  // el último tercio, que es como se abre una rosa de verdad (el centro queda
-  //erguido y el borde se extiende casi en horizontal). Con phiExp = 1.25 el
-  // pétalo se abría a medio camino y el perfil lateral salía un embudo.
-  thetaMap: 50,
-  phiExp: 2.2,
+  thetaMap: 20,
+  phiExp: 1.55,
+  phiDrop: 0.12,
+  curl: 1.35,
+  curlExp: 1.6,
+  curlBase: 0.1,
+  apexLean: 0.06,
+  whorls: 5,
+  whorlExp: 1.3,
   chiMax: 1.55,
-  rbMin: 2,
-  rbMax: 6,
+  rbMin: 0.02,
+  rbMax: 5.2,
   yTop: 20.4,
-  yDrop: 20,
-  l0: 13,
-  lBias: 0.16,
-  lExp: 1.4,
-  rExp: 0.85,
-  hExp: 1.4,
-  wFrac: 0.42,
+  yDrop: 9.2,
+  l0: 16.5,
+  lBias: 0.44,
+  lExp: 1.15,
+  wFrac: 0.54,
   wMin: 0.35,
-  wTip: 0.45,
-  ringExp: 0.6,
-  cup: 0.5,
-  psiOpen: 0.62 * Math.PI,
-  azJit: 0.22,
+  ringExp: 0.45,
+  cup: 0.48,
+  psiOpen: 0.64 * Math.PI,
+  azJit: 0.18,
   tw0: 0.08,
-  tw1: 0.45,
-  tw2: 0.25,
+  tw1: 0.35,
+  tw2: 0.20,
 } as const
 
-/** Sólo resolución. El mismo modelo, triangulado con distinto detalle. */
+// Mismo número de pétalos y mismos verticilos en los tres niveles: la FLOR es
+// la misma. Sólo cambia la densidad de la malla. Antes low/mid usaban 26 y 30
+// pétalos, y por eso tenían huecos que high no tenía: no era resolución, era
+// otra distribución. Los presupuestos de vértices se respetan:
+//   34·8·31 = 8 432 (low) / 34·9·29 = 8 874 (mid) / 34·12·47 = 19 176 (high)
 const RESOLUTION = {
-  low: { petals: 26, qSeg: 2, arcSeg: 44 },
-  mid: { petals: 30, qSeg: 3, arcSeg: 72 },
-  high: { petals: 34, qSeg: 4, arcSeg: 112 },
+  low: { petals: 34, qSeg: 8, arcSeg: 30 },
+  mid: { petals: 34, qSeg: 9, arcSeg: 28 },
+  high: { petals: 34, qSeg: 12, arcSeg: 46 },
 } as const
 
 export const ROSE_PARAMS: Readonly<Record<Tier, Readonly<RoseParams>>> = {
-  low: { ...SHAPE, ...RESOLUTION.low, psiClosed: TAU },
-  mid: { ...SHAPE, ...RESOLUTION.mid, psiClosed: TAU },
-  high: { ...SHAPE, ...RESOLUTION.high, psiClosed: TAU },
+  // psiClosed es la apertura transversal del pétalo interior: ±61°. Antes era
+  // ±158° (TAU·0.88), es decir, cada mitad del pétalo se enrollaba casi una
+  // vuelta completa alrededor de sí misma, cruzaba el eje y se auto-intersecaba.
+  // El enrollado del capullo ahora lo aporta la envoltura cilíndrica de la
+  // sección, no un plegado extremo de la lámina.
+  low: { ...SHAPE, ...RESOLUTION.low, psiClosed: 2.15 },
+  mid: { ...SHAPE, ...RESOLUTION.mid, psiClosed: 2.15 },
+  high: { ...SHAPE, ...RESOLUTION.high, psiClosed: 2.15 },
 }
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v)
 
-/**
- * Nombres explícitos del dominio y de la discretización, como pide el
- * enunciado. El dominio no es continuo: θ avanza una vuelta completa (2π) por
- * cada pétalo, así que θ ∈ [0, 2π·petals].
- */
 export const THETA_MIN = 0
 export const THETA_MAX = (petals: number) => TAU * petals
-/** Segmentos a lo largo de θ (filas del cuerpo de la malla). */
 export const THETA_SEGMENTS = (p: RoseParams) => p.petals * p.qSeg
-/** Segmentos alrededor de la sección transversal (columnas de la malla). */
 export const RADIAL_SEGMENTS = (p: RoseParams) => p.arcSeg
 
 /** φ(θ) = (π/2)·e^(−θ/8π) — ecuación original, sin modificar. */
@@ -202,20 +203,7 @@ export function roseX(theta: number): number {
   return 1 - 0.5 * g * g
 }
 
-/**
- * θ = 2π(n + q/2) — el argumento de X para el pétalo n en la fracción q.
- *
- * Con θ = 2π(n + q) X completaba un período entero por pétalo, pero su
- * período empieza y acaba en la CÚSPIDE (X = 0.5), así que el semiancho del
- * pétalo era cero en la base y cero otra vez en la punta: una hoja de weakest
- * —una espada de hierba— en vez de un pétalo.
- *
- * Recorrer SÓLO la mitad del período (u de 0 a ½) invierte el roles: la
- * cúspide cae en la base, donde el perfil `ring` ya cierra el pétalo a un
- * punto, y la cresta cae en la punta, que es justo donde un pétalo tiene que
- * ser ancho. X deja de ser simétrico y pasa a ser el flanco monótono del
- * contorno. Estructuralmente sigue marcando la costura entre pétalos.
- */
+/** θ = 2π(n + q/2) — argumento de X para el pétalo n en la fracción q. */
 export function roseTheta(n: number, q: number): number {
   return TAU * (n + 0.5 * q)
 }
@@ -230,101 +218,242 @@ export function roseK(p: RoseParams, n: number): number {
   return clamp01(n / p.petals)
 }
 
-/** Elevación del pétalo n: de 90° en el centro a ~30° en el borde. */
+export interface RoseWhorl {
+  k: number
+  j: number
+  m: number
+  kh: number
+  rot: number
+}
+
+interface WhorlTable {
+  whorlOf: Int32Array
+  jOf: Int32Array
+  count: Int32Array
+  kh: Float64Array
+  rot: Float64Array
+}
+
+const whorlTables = new Map<string, WhorlTable>()
+
+function whorlTable(p: RoseParams): WhorlTable {
+  const key = `${p.petals}:${p.whorls}:${p.whorlExp}`
+  const hit = whorlTables.get(key)
+  if (hit) return hit
+
+  const K = Math.max(1, Math.min(p.petals, Math.round(p.whorls)))
+  const count = new Int32Array(K)
+
+  if (K === 5 && p.petals === 34) {
+    count[0] = 3
+    count[1] = 5
+    count[2] = 7
+    count[3] = 9
+    count[4] = 10
+  } else {
+    const weights: number[] = []
+    let sum = 0
+    for (let k = 0; k < K; k++) {
+      const v = Math.pow(k + 1, p.whorlExp)
+      weights.push(v)
+      sum += v
+    }
+    let used = 0
+    for (let k = 0; k < K; k++) {
+      count[k] = Math.max(3, Math.floor((p.petals * weights[k]) / sum))
+      used += count[k]
+    }
+    while (used > p.petals) {
+      let big = -1
+      for (let k = 0; k < K; k++) {
+        if (count[k] > 3 && (big < 0 || count[k] > count[big])) big = k
+      }
+      if (big < 0) break
+      count[big]--
+      used--
+    }
+    while (used < p.petals) {
+      count[K - 1]++
+      used++
+    }
+  }
+
+  const whorlOf = new Int32Array(p.petals)
+  const jOf = new Int32Array(p.petals)
+  const kh = new Float64Array(K)
+  const rot = new Float64Array(K)
+  let n = 0
+  for (let k = 0; k < K; k++) {
+    const first = n
+    for (let j = 0; j < count[k]; j++) {
+      whorlOf[n] = k
+      jOf[n] = j
+      n++
+    }
+    const last = Math.max(first, n - 1)
+    kh[k] = (first + last) / 2 / p.petals
+    rot[k] = (k * 0.6180339887498949 + (k === 0 ? 0.15 : 0)) % 1
+  }
+  for (; n < p.petals; n++) {
+    whorlOf[n] = K - 1
+    jOf[n] = count[K - 1]
+    count[K - 1]++
+  }
+
+  const table: WhorlTable = { whorlOf, jOf, count, kh, rot }
+  whorlTables.set(key, table)
+  return table
+}
+
+export function roseWhorl(p: RoseParams, n: number): RoseWhorl {
+  const t = whorlTable(p)
+  const idx = Math.min(p.petals - 1, Math.max(0, Math.floor(n)))
+  const k = t.whorlOf[idx]
+  return { k, j: t.jOf[idx], m: t.count[k], kh: t.kh[k], rot: t.rot[k] }
+}
+
+function petalHash(n: number): number {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453
+  return (s - Math.floor(s)) * 2 - 1
+}
+
+export function roseElevation(p: RoseParams, kh: number): number {
+  return rosePhi(p.thetaMap * Math.pow(kh, p.phiExp)) - p.phiDrop * kh * kh
+}
+
 export function rosePhiPetal(p: RoseParams, n: number): number {
-  return rosePhi(p.thetaMap * Math.pow(roseK(p, n), p.phiExp))
+  return roseElevation(p, roseWhorl(p, n).kh)
 }
 
 export interface RoseSpine {
-  /** Posición de la espina en el plano del suelo. */
   r: number
-  /** Altura de la espina. */
   h: number
-  /** Longitud total del pétalo. */
   l: number
-  /** Semiancho de la sección en este punto. */
   w: number
-  /** phi, sen y cos del plano del pétalo. */
   phi: number
   sinPhi: number
   cosPhi: number
-  /** Azimut de la espina. */
   beta: number
   cosBeta: number
   sinBeta: number
-  /** Barrido angular de la sección. */
   psiMax: number
   kh: number
-  /** Fracción de la espina en la que se evaluó este punto. */
   q: number
+  /** Fase determinista por pétalo para ondular bordes sin repetir el patrón. */
+  hash: number
 }
 
-/**
- * Espina del pétalo n en la fracción q de su longitud.
- * Es la única pieza que se comparte entre la superficie y el casquete.
- */
-export function roseSpine(p: RoseParams, n: number, q: number): RoseSpine {
-  const kh = roseK(p, n)
-  const phi = rosePhi(p.thetaMap * Math.pow(kh, p.phiExp))
-  const sinPhi = Math.sin(phi)
-  const cosPhi = Math.cos(phi)
+// Cuadratura de Gauss-Legendre de 5 puntos para integrar la dirección tangente
+const GL_X = [
+  0.0,
+  -0.5384693101056831,
+   0.5384693101056831,
+  -0.9061798459386640,
+   0.9061798459386640,
+]
+const GL_W = [
+  0.5688888888888889,
+  0.4786286704993665,
+  0.4786286704993665,
+  0.2369268850561891,
+  0.2369268850561891,
+]
 
-  // Cúpula del receptáculo: las bases de los pétalos se reparten por una
-  // cúpula, de modo que el contorno de la flor abomba en el medio en vez de
-  // ser una recta del ápice al borde.
-  const chi = p.chiMax * kh
+export function roseSpine(p: RoseParams, n: number, q: number): RoseSpine {
+  const wh = roseWhorl(p, n)
+  const khw = wh.kh
+  const hash = petalHash(n)
+  const hashW = petalHash(n * 1.7 + 4.3)
+  const hashC = petalHash(n * 2.3 + 8.1)
+  const hashB = petalHash(n * 3.7 + 1.2)
+
+  const psi0 = roseElevation(p, khw) + 0.04 * hash
+  // La curvatura extra del capullo se apaga hacia los verticilos externos:
+  // si se aplica también al borde, los pétalos de la copa se separan y aparece
+  // una rendija lateral. El centro necesita arquearse; la copa ya tiene su
+  // propia caída (psi0).
+  const innerCurl = p.curlBase * Math.pow(1 - khw, 2)
+  const curlAmt =
+    p.curl *
+    (innerCurl + (1 - innerCurl) * Math.pow(khw, p.curlExp)) *
+    (1 + 0.05 * hashC)
+  const apexLean = p.apexLean * Math.pow(clamp01(1 - khw / 0.5), 2)
+  const psi = psi0 + apexLean * q - curlAmt * q * q
+  const sinPhi = Math.sin(psi)
+  const cosPhi = Math.cos(psi)
+
+  // Cúpula del receptáculo. El exponente 1.35 acerca el primer verticilo al
+  // eje (r ≈ 0.07): el capullo nace cerrado en el ápice en vez de alrededor
+  // de un agujero. Hacia afuera la cúpula recupera el radio completo.
+  const chi = p.chiMax * Math.pow(khw, 1.35)
   const rBase = p.rbMin + (p.rbMax - p.rbMin) * Math.sin(chi)
   const hBase = p.yTop - p.yDrop * (1 - Math.cos(chi))
 
-  const l = p.l0 * (p.lBias + (1 - p.lBias) * Math.pow(kh, p.lExp))
+  const l = p.l0 * (p.lBias + (1 - p.lBias) * Math.pow(khw, p.lExp)) * (1 + 0.05 * hash)
 
-  const r = rBase + l * Math.pow(q, p.rExp) * cosPhi
-  const h = hBase - l * Math.pow(q, p.hExp) * sinPhi
+  // INTEGRACIÓN DE LA TANGENTE:
+  // r(q) = rBase + l · ∫_0^q cos(ψ(s)) ds
+  // h(q) = hBase + l · ∫_0^q sin(ψ(s)) ds
+  // Garantiza que el vector tangente de la espina sea unitario y colineal con e1
+  let intCos = 0
+  let intSin = 0
+  const halfQ = q * 0.5
+  for (let i = 0; i < 5; i++) {
+    const s = halfQ * (1 + GL_X[i])
+    const ps = psi0 + apexLean * s - curlAmt * s * s
+    intCos += GL_W[i] * Math.cos(ps)
+    intSin += GL_W[i] * Math.sin(ps)
+  }
+  intCos *= halfQ
+  intSin *= halfQ
 
-  // El semiancho escala con l0 y no con el radio global: así el pétalo
-  // exterior es ancho porque es largo, y el interior angosto porque es corto.
+  const r = rBase + l * intCos
+  const h = hBase + l * intSin
+
+  // Perfil obovado continuo: nace estrecho en la base (ring lo cierra a un
+  // punto), alcanza su máxima anchura hacia el 35–50 % y termina en un lóbulo
+  // distal redondeado que conserva ~52 % de la anchura máxima. La fórmula
+  // anterior tomaba el MÁXIMO de dos ramas y llegaba a q = 1 con la anchura
+  // máxima: la última fila era un corte recto, la "cinta de papel recortada".
+  // `lobe` es una sinusoide suave, sin máximos ni clamps que introduzcan
+  // quiebres de pendiente.
+  const lobe = 0.52 + 0.48 * Math.sin(Math.pow(q, 0.8) * Math.PI)
   const xn = roseXNorm(roseTheta(n, q))
-  const w = Math.max(
-    p.wMin,
-    p.l0 *
-      p.wFrac *
-      (p.wTip + (1 - p.wTip) * q) *
-      (0.35 + 0.65 * kh) *
-      (0.25 + 0.75 * xn),
-  )
+  // Las puntas de la copa se afinan un poco: los pétalos exteriores se veían
+  // demasiado gruesos y redondeados. Es una transición suave sobre el último
+  // 18 % de q, no un recorte.
+  const tipT = clamp01((q - 0.82) / 0.18)
+  const tipTaper = 1 - 0.12 * khw * tipT * tipT * (3 - 2 * tipT)
+  const targetW =
+    l * p.wFrac * lobe * (0.8 + 0.2 * xn) * tipTaper * (1 + 0.06 * hashW)
+  const w = Math.max(p.wMin, targetW)
 
+  // Torsión espiral del capullo: los pétalos centrales se enrollan helicoidalmente
+  const budSpiral = (1 - khw) * (1 - khw) * 0.55 * q
   const beta =
-    n * GOLDEN_ANGLE + p.azJit * Math.sin(GOLDEN_ANGLE * q + 1.7) * Math.pow(kh, 1.2)
+    (TAU * (wh.j + wh.rot)) / wh.m +
+    budSpiral +
+    0.055 * hashB * (1 - khw) +
+    p.azJit * Math.sin(GOLDEN_ANGLE * (n + q) + 1.7) * Math.pow(khw, 1.2)
 
   return {
     r,
     h,
     l,
     w,
-    phi,
+    phi: psi,
     sinPhi,
     cosPhi,
     beta,
     cosBeta: Math.cos(beta),
     sinBeta: Math.sin(beta),
-    psiMax: p.psiClosed + (p.psiOpen - p.psiClosed) * Math.pow(kh, 0.8),
-    kh,
+    psiMax: p.psiClosed + (p.psiOpen - p.psiClosed) * Math.pow(khw, 0.75),
+    kh: khw,
     q,
+    hash,
   }
 }
 
-/**
- * Base ortonormal de la sección, en forma cerrada (sin productos cruzados).
- *
- *   e1 = ( cosφ·cosβ,  −sinφ,  cosφ·sinβ)   dirección de la espina
- *   e2 = ( sinβ,        0,     −cosβ )      puramente tangencial
- *   e3 = ( sinφ·cosβ,   cosφ,  sinφ·sinβ)   dirección del cuenco
- *
- * Verificado: |e1| = |e2| = |e3| = 1, e1·e3 = cosφ·sinφ − sinφ·cosφ = 0 y
- * e3 × e2 = e1. Como φ ∈ (0°, 90°], cosφ ≠ 0 y e2 es siempre horizontal, no
- * existe ninguna orientación donde el marco se degenera. El marco "obvio"
- * e2 = up × e1 sí colapsa en φ = 90°, justo en el capullo.
- */
 export interface Frame {
   ex: number
   ey: number
@@ -340,31 +469,18 @@ export interface Frame {
 export function roseFrame(s: RoseSpine): Frame {
   const { cosPhi: cf, sinPhi: sf, cosBeta: cb, sinBeta: sb } = s
   return {
-    // e1
     ex: cf * cb,
-    ey: -sf,
+    ey: sf,
     ez: cf * sb,
-    // e2
     ax: sb,
     ay: 0,
     az: -cb,
-    // e3
-    bx: sf * cb,
+    bx: -sf * cb,
     by: cf,
-    bz: sf * sb,
+    bz: -sf * sb,
   }
 }
 
-/**
- * Un punto de la flor.
- *   n  índice de pétalo (0 … petals)
- *   q  fracción de la espina, [0,1]
- *   a  fracción normalizada del barrido de la sección, [0,1]
- *
- * `a` DEBE ser una fracción normalizada y nunca un ángulo absoluto: psiMax
- * depende de n, así que barrer ψ directamente haría que s = 2a−1 se saliera de
- * [−1,1] y el término del cuenco explotara.
- */
 export function rosePosition(p: RoseParams, n: number, q: number, a: number, out: Vec3): Vec3 {
   const s = roseSpine(p, n, q)
   const f = roseFrame(s)
@@ -378,18 +494,34 @@ export function rosePositionFromSpine(
   a: number,
   out: Vec3,
 ): Vec3 {
-  const psi = a * s.psiMax - s.psiMax * 0.5
+  const u = 2 * a - 1
+  const psi = u * (s.psiMax * 0.5)
   const sinPsi = Math.sin(psi)
   const cosPsi = Math.cos(psi)
 
-  // El pétalo nace de un punto y se abre: base reducida a 0 en q = 0, boca
-  // completa en q = 1. Es lo que hace que cada pétalo sea una hoja y no un
-  // tubo, y además cierra el centro de la flor sin necesitar un casquete.
+  // Perfil del pétalo: base cerrada a un punto (ring) y borde arqueado
   const ring = Math.sin(Math.pow(s.q, p.ringExp) * Math.PI * 0.5)
-  const lat = s.w * ring * sinPsi
-  const dep = p.cup * s.w * ring * cosPsi
+  const tipArch = 1 - 0.22 * (u * u) * s.q
+  const edgeRuffle =
+    p.azJit *
+    0.28 *
+    Math.sin(u * Math.PI * 3 + s.kh * 7 + s.hash * 0.9) *
+    Math.pow(s.q, 2) *
+    Math.pow(s.kh, 1.2)
 
-  // Torcer la sección sobre la espina (Rodrigues, válido porque e1×e2 = e3).
+  const lat = s.w * ring * sinPsi * (1 + edgeRuffle)
+
+  // Cuenco profundo y reflejo de los márgenes en pétalos abiertos
+  const reflex = 0.28 * Math.pow(s.kh, 1.5) * Math.pow(s.q, 2) * Math.pow(Math.abs(u), 3)
+  const dep = (p.cup * cosPsi - reflex) * s.w * ring * tipArch
+
+  // Retracción de la silueta en los extremos laterales (contorno suave obovado)
+  const archPull = -0.16 * (u * u) * s.l * Math.pow(s.q, 1.5)
+  const e1x = f.ex * archPull
+  const e1y = f.ey * archPull
+  const e1z = f.ez * archPull
+
+  // Rodrigues twist
   const t = p.tw0 * s.kh + p.tw1 * s.kh * s.q + p.tw2 * s.kh * s.q * s.q
   const ct = Math.cos(t)
   const st = Math.sin(t)
@@ -401,32 +533,36 @@ export function rosePositionFromSpine(
   const A3y = -f.ay * st + f.by * ct
   const A3z = -f.az * st + f.bz * ct
 
-  const cx = s.r * s.cosBeta
-  const cz = s.r * s.sinBeta
+  // Envoltura cilíndrica del capullo: para los pétalos centrales, la sección lateral
+  // se curva alrededor del eje vertical en lugar de dispararse en plano tangente
+  const bf = clamp01(1 - s.kh / 0.5)
+  const smooth = bf * bf * (3 - 2 * bf)
+  const budWeight = smooth * smooth * (3 - 2 * smooth)
 
-  out[0] = cx + A2x * lat - A3x * dep
-  out[1] = s.h + A2y * lat - A3y * dep
-  out[2] = cz + A2z * lat - A3z * dep
+  if (budWeight > 1e-4) {
+    const rPlan = Math.max(0.1, s.r + dep)
+    const ang = s.beta + Math.atan2(lat * budWeight, rPlan)
+    const rCyl = Math.hypot(rPlan, lat * budWeight)
+
+    out[0] = rCyl * Math.cos(ang) + e1x
+    out[1] = s.h + A2y * lat + A3y * dep + e1y
+    out[2] = rCyl * Math.sin(ang) + e1z
+  } else {
+    const cx = s.r * s.cosBeta
+    const cz = s.r * s.sinBeta
+    out[0] = cx + A2x * lat + A3x * dep + e1x
+    out[1] = s.h + A2y * lat + A3y * dep + e1y
+    out[2] = cz + A2z * lat + A3z * dep + e1z
+  }
   return out
 }
 
-/**
- * φ(θ) — elevación del pétalo n: de 90° en el centro a ~30° en el borde.
-
-/**
- * aProgress — el parámetro de crecimiento por vértice.
- * 0 = primera floración, 1 = última. Orden: centro → interiores → exteriores.
- * El 14 % de q escalona el despliegue a lo largo del propio pétalo, y el
- * solapamiento del 14 % entre pétalos evita que el florecimiento se vea a
- * saltos. El seno es una desviación determinista de ±4 %: nunca hay random().
- */
 export function roseProgress(p: RoseParams, n: number, q: number): number {
   return clamp01(
     0.86 * (n / p.petals) + 0.14 * q + 0.04 * Math.sin(n * GOLDEN_ANGLE),
   )
 }
 
-/** aPetal — orden de crecimiento sin sesgar, para variación de color. */
 export function rosePetalIndex(p: RoseParams, n: number, q: number): number {
   return clamp01((n + q) / p.petals)
 }
@@ -436,7 +572,6 @@ export interface RoseBounds {
   max: Vec3
   center: Vec3
   radius: number
-  /** cociente ancho/alto del bounding box. */
   aspect: number
 }
 
@@ -449,56 +584,25 @@ export interface RoseArrays {
   index: Uint32Array
   vertexCount: number
   triangleCount: number
-  /** Filas (q) y columnas (sección) de la malla. */
   rows: number
   cols: number
   bounds: RoseBounds
-  /** El "corazón" de la flor: el eje del capullo de pétalos interiores. */
   core: Vec3
 }
 
 export interface BuildOptions {
-  /** No normalizar a radio 1 (el validador lo necesita para medir d/h). */
   skipNormalize?: boolean
 }
 
-const EPS = 1e-4
-
-// Vectores de trabajo reutilizados: buildRoseArrays se llama una vez por tier
-// y no debe asignar ~16 000 objetos.
-const tmp: Vec3 = [0, 0, 0]
-const du: Vec3 = [0, 0, 0]
-const dv: Vec3 = [0, 0, 0]
-const tu: Vec3 = [0, 0, 0]
-const tv: Vec3 = [0, 0, 0]
-
-/**
- * Malla: `petals · qSeg` filas (q) por `arcSeg + 1` columnas (sección).
- *
- * TOPOLOGÍA — por qué los pétalos NO están unidos entre sí.
- * Cada pétalo va del eje (q = 0, un punto) al borde (q = 1, boca abierta).
- * Unir la punta del pétalo n con la base del n + 1 cruzaría toda la flor en
- * diagonal: un radio de 20 unidades de escombro atravesando el centro. En la
- * naturaleza no pasa eso, y por eso aquí tampoco: una rosa ES pétalos
- * superpuestos. El índice simplemente no crea quads entre el final de un
- * pétalo y el principio del siguiente, así que la geometría tiene `petals`
- * componentes conexas que se solapan. Con DoubleSide no se ve ningún hueco:
- * cada pétalo es una hoja cerrada en la base y abierta en la boca, que es
- * exactamente lo que es un pétalo real.
- *
- * Las normales salen de diferencias centrales de rosePosition (4 evaluaciones
- * por vértice, ~2 ms) y no de promediarlas, para no suavizar ni la cúspide de
- * X en la costura del pétalo ni el canto del cuenco.
- */
 export function buildRoseArrays(
   p: RoseParams,
   opts: BuildOptions = {},
 ): RoseArrays {
+  const { skipNormalize = false } = opts
   const cols = p.arcSeg + 1
   const rows = p.petals * p.qSeg
   const vertexCount = rows * cols
-  const quadsPerPetal = (p.qSeg - 1) * p.arcSeg
-  const triangleCount = p.petals * quadsPerPetal * 2
+  const triangleCount = p.petals * (p.qSeg - 1) * p.arcSeg * 2
 
   const position = new Float32Array(vertexCount * 3)
   const normal = new Float32Array(vertexCount * 3)
@@ -507,76 +611,126 @@ export function buildRoseArrays(
   const aPetal = new Float32Array(vertexCount)
   const index = new Uint32Array(triangleCount * 3)
 
-  // Fila → (pétalo, posición sobre el pétalo). q recorre [0,1] con qSeg
-  // muestras, así que la punta (q = 1) SÍ existe en el modelo.
-  const petalOf = (row: number) => Math.floor(row / p.qSeg)
-  const qOf = (row: number) => (row % p.qSeg) / (p.qSeg - 1)
-
-  const at = (row: number, col: number, o: Vec3) =>
-    rosePosition(p, petalOf(row), qOf(row), col / p.arcSeg, o)
+  const qOf = (row: number) => (row % p.qSeg) / Math.max(1, p.qSeg - 1)
+  const aOf = (col: number) => col / p.arcSeg
 
   const min: Vec3 = [Infinity, Infinity, Infinity]
   const max: Vec3 = [-Infinity, -Infinity, -Infinity]
+  const p0: Vec3 = [0, 0, 0]
 
-  for (let row = 0; row < rows; row++) {
-    const n = petalOf(row)
-    const q = qOf(row)
-    // Normal de referencia para el vértice colapsado de la base (q = 0):
-    // la espina del pétalo. Evita la normal (0,1,0) que se leería como un
-    // error en el vértice más visible de la flor.
-    const s0 = roseSpine(p, n, 0)
-    const f0 = roseFrame(s0)
-    for (let col = 0; col < cols; col++) {
-      const vi = row * cols + col
-      at(row, col, tmp)
-      position[vi * 3] = tmp[0]
-      position[vi * 3 + 1] = tmp[1]
-      position[vi * 3 + 2] = tmp[2]
-      for (let k = 0; k < 3; k++) {
-        if (tmp[k] < min[k]) min[k] = tmp[k]
-        if (tmp[k] > max[k]) max[k] = tmp[k]
+  for (let n = 0; n < p.petals; n++) {
+    for (let qi = 0; qi < p.qSeg; qi++) {
+      const row = n * p.qSeg + qi
+      const q = qOf(row)
+      const s = roseSpine(p, n, q)
+      const f = roseFrame(s)
+      for (let col = 0; col < cols; col++) {
+        const a = aOf(col)
+        const vi = row * cols + col
+        rosePositionFromSpine(p, s, f, a, p0)
+
+        position[vi * 3] = p0[0]
+        position[vi * 3 + 1] = p0[1]
+        position[vi * 3 + 2] = p0[2]
+
+        uv[vi * 2] = a
+        uv[vi * 2 + 1] = q
+        aProgress[vi] = roseProgress(p, n, q)
+        aPetal[vi] = rosePetalIndex(p, n, q)
+
+        if (p0[0] < min[0]) min[0] = p0[0]
+        if (p0[1] < min[1]) min[1] = p0[1]
+        if (p0[2] < min[2]) min[2] = p0[2]
+        if (p0[0] > max[0]) max[0] = p0[0]
+        if (p0[1] > max[1]) max[1] = p0[1]
+        if (p0[2] > max[2]) max[2] = p0[2]
       }
-
-      uv[vi * 2] = col / p.arcSeg
-      uv[vi * 2 + 1] = q
-      aProgress[vi] = roseProgress(p, n, q)
-      aPetal[vi] = rosePetalIndex(p, n, q)
-
-      // Normales por diferencias centrales; una sola diferencia en los bordes
-      // de la sección y en las bases de los pétalos.
-      const rPrev = Math.max(0, row - 1)
-      const rNext = Math.min(rows - 1, row + 1)
-      const cPrev = Math.max(0, col - 1)
-      const cNext = Math.min(p.arcSeg, col + 1)
-
-      du[0] = 0; du[1] = 0; du[2] = 0
-      dv[0] = 0; dv[1] = 0; dv[2] = 0
-      at(rNext, col, du)
-      at(rPrev, col, dv)
-      tu[0] = du[0] - dv[0]; tu[1] = du[1] - dv[1]; tu[2] = du[2] - dv[2]
-      at(row, cNext, du)
-      at(row, cPrev, dv)
-      tv[0] = du[0] - dv[0]; tv[1] = du[1] - dv[1]; tv[2] = du[2] - dv[2]
-
-      let nx = tu[1] * tv[2] - tu[2] * tv[1]
-      let ny = tu[2] * tv[0] - tu[0] * tv[2]
-      let nz = tu[0] * tv[1] - tu[1] * tv[0]
-      const len = Math.hypot(nx, ny, nz)
-      if (len < EPS) {
-        nx = f0.ex; ny = f0.ey; nz = f0.ez
-      } else {
-        nx /= len; ny /= len; nz /= len
-      }
-      normal[vi * 3] = nx
-      normal[vi * 3 + 1] = ny
-      normal[vi * 3 + 2] = nz
     }
   }
 
-  // Índices sólo dentro de cada pétalo: el salto del último qi al primero del
-  // pétalo siguiente se salta deliberadamente.
+  // Normales por diferencias centrales acotadas al propio pétalo
+  const tu: Vec3 = [0, 0, 0]
+  const tv: Vec3 = [0, 0, 0]
+
+  for (let n = 0; n < p.petals; n++) {
+    const petalStart = n * p.qSeg
+    const petalEnd = petalStart + p.qSeg - 1
+    for (let qi = 0; qi < p.qSeg; qi++) {
+      const row = n * p.qSeg + qi
+      const rPrev = Math.max(petalStart, row - 1)
+      const rNext = Math.min(petalEnd, row + 1)
+      for (let col = 0; col < cols; col++) {
+        const cPrev = Math.max(0, col - 1)
+        const cNext = Math.min(p.arcSeg, col + 1)
+
+        const vi = row * cols + col
+        const viU0 = rPrev * cols + col
+        const viU1 = rNext * cols + col
+        const viV0 = row * cols + cPrev
+        const viV1 = row * cols + cNext
+
+        tu[0] = position[viU1 * 3] - position[viU0 * 3]
+        tu[1] = position[viU1 * 3 + 1] - position[viU0 * 3 + 1]
+        tu[2] = position[viU1 * 3 + 2] - position[viU0 * 3 + 2]
+
+        tv[0] = position[viV1 * 3] - position[viV0 * 3]
+        tv[1] = position[viV1 * 3 + 1] - position[viV0 * 3 + 1]
+        tv[2] = position[viV1 * 3 + 2] - position[viV0 * 3 + 2]
+
+        const nx = tu[1] * tv[2] - tu[2] * tv[1]
+        const ny = tu[2] * tv[0] - tu[0] * tv[2]
+        const nz = tu[0] * tv[1] - tu[1] * tv[0]
+        const len = Math.hypot(nx, ny, nz)
+        if (len < 1e-6) {
+          const sp = roseSpine(p, n, 0)
+          const fr = roseFrame(sp)
+          normal[vi * 3] = fr.bx
+          normal[vi * 3 + 1] = fr.by
+          normal[vi * 3 + 2] = fr.bz
+        } else {
+          normal[vi * 3] = nx / len
+          normal[vi * 3 + 1] = ny / len
+          normal[vi * 3 + 2] = nz / len
+        }
+      }
+    }
+  }
+
+  // Orientación POR PÉTALO
+  const petalFlip = new Uint8Array(p.petals)
+  for (let n = 0; n < p.petals; n++) {
+    let s = 0
+    for (let qi = 1; qi < p.qSeg; qi++) {
+      const row = n * p.qSeg + qi
+      const sp = roseSpine(p, n, qOf(row))
+      const cx = sp.r * sp.cosBeta
+      const cy = sp.h
+      const cz = sp.r * sp.sinBeta
+      for (let col = 0; col < cols; col++) {
+        const vi = row * cols + col
+        s +=
+          (position[vi * 3] - cx) * normal[vi * 3] +
+          (position[vi * 3 + 1] - cy) * normal[vi * 3 + 1] +
+          (position[vi * 3 + 2] - cz) * normal[vi * 3 + 2]
+      }
+    }
+    if (s < 0) {
+      petalFlip[n] = 1
+      for (let qi = 0; qi < p.qSeg; qi++) {
+        const row = n * p.qSeg + qi
+        for (let col = 0; col < cols; col++) {
+          const vi = row * cols + col
+          normal[vi * 3] = -normal[vi * 3]
+          normal[vi * 3 + 1] = -normal[vi * 3 + 1]
+          normal[vi * 3 + 2] = -normal[vi * 3 + 2]
+        }
+      }
+    }
+  }
+
   let t = 0
   for (let n = 0; n < p.petals; n++) {
+    const flip = petalFlip[n] === 1
     for (let qi = 0; qi < p.qSeg - 1; qi++) {
       const row = n * p.qSeg + qi
       for (let col = 0; col < p.arcSeg; col++) {
@@ -584,90 +738,30 @@ export function buildRoseArrays(
         const b = a + 1
         const d = a + cols
         const e = d + 1
-        index[t++] = a
-        index[t++] = b
-        index[t++] = e
-        index[t++] = a
-        index[t++] = e
-        index[t++] = d
+        if (flip) {
+          index[t++] = a; index[t++] = b; index[t++] = e
+          index[t++] = a; index[t++] = e; index[t++] = d
+        } else {
+          index[t++] = a; index[t++] = e; index[t++] = b
+          index[t++] = a; index[t++] = d; index[t++] = e
+        }
       }
     }
   }
 
-  // ¿El winding mira hacia afuera? Suma de dot(normal de cara, centro de cara
-  // − centro). Si sale negativa se invierte índice y normales.
-  const bboxCenter: Vec3 = [
-    (min[0] + max[0]) / 2,
-    (min[1] + max[1]) / 2,
-    (min[2] + max[2]) / 2,
-  ]
-  let outward = 0
-  for (let f = 0; f < triangleCount; f += 3) {
-    const i0 = index[f] * 3
-    const i1 = index[f + 1] * 3
-    const i2 = index[f + 2] * 3
-    const ex1 = position[i1] - position[i0]
-    const ey1 = position[i1 + 1] - position[i0 + 1]
-    const ez1 = position[i1 + 2] - position[i0 + 2]
-    const ex2 = position[i2] - position[i0]
-    const ey2 = position[i2 + 1] - position[i0 + 1]
-    const ez2 = position[i2 + 2] - position[i0 + 2]
-    outward +=
-      (ey1 * ez2 - ez1 * ey2) * ((position[i0] + position[i1] + position[i2]) / 3 - bboxCenter[0]) +
-      (ez1 * ex2 - ex1 * ez2) * ((position[i0 + 1] + position[i1 + 1] + position[i2 + 1]) / 3 - bboxCenter[1]) +
-      (ex1 * ey2 - ey1 * ex2) * ((position[i0 + 2] + position[i1 + 2] + position[i2 + 2]) / 3 - bboxCenter[2])
-  }
-  if (outward < 0) {
-    for (let f = 0; f < triangleCount; f += 3) {
-      const s1 = index[f + 1]
-      index[f + 1] = index[f + 2]
-      index[f + 2] = s1
-    }
-    for (let i = 0; i < vertexCount; i++) {
-      normal[i * 3] = -normal[i * 3]
-      normal[i * 3 + 1] = -normal[i * 3 + 1]
-      normal[i * 3 + 2] = -normal[i * 3 + 2]
-    }
+  const rawSize = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2]) || 1
+  const scale = skipNormalize ? 1 : 1 / rawSize
+
+  if (!skipNormalize) {
+    for (let i = 0; i < vertexCount * 3; i++) position[i] *= scale
+    min[0] *= scale; min[1] *= scale; min[2] *= scale
+    max[0] *= scale; max[1] *= scale; max[2] *= scale
   }
 
-  // Normalización: escala uniforme para que el lado mayor del bbox sea 1, de
-  // modo que la cámara pueda encuadrar sólo con ROSE_BOUNDS.
-  const rawSize = Math.max(max[0] - min[0], max[1] - min[1], max[2] - min[2])
-  const scale = 1 / rawSize
-  const pivot: Vec3 = [
-    (min[0] + max[0]) / 2,
-    (min[1] + max[1]) / 2,
-    (min[2] + max[2]) / 2,
-  ]
-  if (!opts.skipNormalize) {
-    for (let i = 0; i < vertexCount; i++) {
-      position[i * 3] = (position[i * 3] - pivot[0]) * scale
-      position[i * 3 + 1] = (position[i * 3 + 1] - pivot[1]) * scale
-      position[i * 3 + 2] = (position[i * 3 + 2] - pivot[2]) * scale
-    }
-    for (let k = 0; k < 3; k++) {
-      min[k] = (min[k] - pivot[k]) * scale
-      max[k] = (max[k] - pivot[k]) * scale
-    }
-  }
-
-  // El "corazón" de la flor: el eje del capullo de pétalos interiores, que es
-  // donde nace el brillo central y desde donde crece la geometría.
-  let cx = 0
-  let cz = 0
-  for (let i = 0; i < vertexCount; i++) {
-    cx += position[i * 3]
-    cz += position[i * 3 + 2]
-  }
-  cx /= vertexCount
-  cz /= vertexCount
-
-  const center: Vec3 = [cx, (min[1] + max[1]) / 2, cz]
-  const radius = Math.max(
-    Math.hypot(max[0] - center[0], max[1] - center[1], max[2] - center[2]),
-    Math.hypot(min[0] - center[0], min[1] - center[1], min[2] - center[2]),
-  )
-  const core: Vec3 = [center[0], center[1], center[2]]
+  const d = Math.max(max[0] - min[0], max[2] - min[2])
+  const h = max[1] - min[1]
+  const center: Vec3 = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2]
+  const radius = Math.hypot(max[0] - center[0], max[1] - center[1], max[2] - center[2])
 
   return {
     position,
@@ -678,15 +772,15 @@ export function buildRoseArrays(
     index,
     vertexCount,
     triangleCount,
+    rows,
+    cols,
     bounds: {
       min,
       max,
       center,
       radius,
-      aspect: Math.max(max[0] - min[0], max[2] - min[2]) / Math.max(max[1] - min[1], 1e-6),
+      aspect: d / Math.max(h, 1e-4),
     },
-    rows,
-    cols,
-    core,
+    core: [0, min[1] + (max[1] - min[1]) * 0.45, 0],
   }
 }

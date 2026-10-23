@@ -96,7 +96,7 @@ export function frameRose(bounds: RoseBounds, fovDeg: number, aspect: number, he
   // dirección se NORMALIZA: sin eso los tres componentes suman 0.9988 en
   // norma euclídea y la distancia real de la cámara no coincide con la que
   // calculó el encuadre.
-  const dir: [number, number, number] = [0.3, 0.34, 0.89]
+  const dir: [number, number, number] = [0.3, 0.46, 0.83]
   const dl = Math.hypot(dir[0], dir[1], dir[2])
   const position: [number, number, number] = [
     target[0] + (distance * dir[0]) / dl,

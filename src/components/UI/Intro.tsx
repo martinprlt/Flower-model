@@ -18,9 +18,13 @@ export function Intro({ text, visible }: { text: string; visible: boolean }) {
           key="intro"
           className="intro-text"
           aria-live="polite"
-          initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -6, filter: 'blur(5px)' }}
+          // x: '-50%' dentro de la animación, no en el CSS: Framer Motion
+          // escribe `transform` en línea y esa línea pisa el
+          // `translateX(-50%)` de la hoja de estilos. Sin esto la frase se
+          // quedaba desplazada media caja a la derecha.
+          initial={{ opacity: 0, x: '-50%', y: 10, filter: 'blur(6px)' }}
+          animate={{ opacity: 1, x: '-50%', y: 0, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, x: '-50%', y: -6, filter: 'blur(5px)' }}
           transition={{ duration: 1.1, ease: [0.22, 0.61, 0.36, 1] }}
         >
           {text}

@@ -26,7 +26,7 @@ npm run dev
 ## Comprobar que nada está roto
 
 ```bash
-npm run validate   # 44 + 36 comprobaciones; sale con código != 0 si falla
+npm run validate   # 55 + 36 comprobaciones; sale con código != 0 si falla
 npm run typecheck
 npm run build      # producción, listo para Vercel
 ```
@@ -38,9 +38,11 @@ nota hasta que se ve.
 
 | Comando | Qué comprueba |
 |---|---|
-| `npm run validate:rose` | `X(φ)` contra sus valores exactos, ortonormalidad del marco, ausencia de NaN, triángulos degenerados, proporción d/h, orden centro→exterior, presupuesto de vértices, y **renders ASCII de la silueta** (3/4, perfil y cenital) para que puedas ver la forma desde un terminal |
+| `npm run validate:rose` | `X(θ)` contra sus valores exactos, ortonormalidad del marco, ausencia de NaN, triángulos degenerados, **pliegues >90° entre caras vecinas**, cierre del ápice, compacidad del centro, proporción d/h, orden centro→exterior, presupuesto de vértices, y **renders ASCII de la silueta** (3/4, perfil y cenital) para que puedas ver la forma desde un terminal |
 | `npm run validate:experience` | Ordenamiento del crecimiento del shader, duración de la secuencia narrativa, y encuadre de cámara en 360×640 / 390×844 / 430×932 / 1366×768 / 1920×1080 (¿la rosa se recorta en móvil? era un fallo real que encontró esta comprobación) |
 | `npm run render` | PNG de cuatro vistas para mirar la forma en un visor: `npm run render out.png` |
+| `scripts/analyze-rose.mjs` | Mide huecos encerrados, cavidades y pliegues de la malla en cuatro vistas, sin luces |
+| `scripts/analyze-capture.mjs` / `analyze-diff.mjs` | Capturas reales con Puppeteer y medición de negros/huecos contra una placa de fondo |
 
 ## Dónde cambiar qué
 
@@ -73,12 +75,12 @@ basta.
 
 | Clave | Uso | Valor actual |
 |---|---|---|
-| `core` | centro del capullo | `#5A0716` |
-| `petal` | color base de los pétalos | `#8F1028` |
-| `lit` | zonas iluminadas | `#C72543` |
-| `highlight` | bordes y brillos | `#E14B63` |
-| `glow` | resplandor del crecimiento y pulso al tocar | `#FF5A6E` |
-| `rim` | luz de contra | `#FF8A94` |
+| `core` | centro del capullo | `#3A030D` |
+| `petal` | color base de los pétalos | `#8E0F28` |
+| `lit` | zonas iluminadas | `#BD1B3B` |
+| `highlight` | bordes y brillos | `#DC3656` |
+| `glow` | resplandor del crecimiento y pulso al tocar | `#FF4D6B` |
+| `rim` | luz de contra | `#FF758C` |
 | `bgTop` / `bgMid` / `bgBottom` | fondo degradado, nunca negro puro | `#070304` / `#100408` / `#16060B` |
 | `halo` | halo radial tras la rosa | `#3A0A16` |
 | `wire` / `point` | estructura matemática | `#FF7A8C` / `#FFB3BE` |
@@ -118,14 +120,17 @@ la resolución, así que la rosa se ve igual en un teléfono y en un portátil.
 
 | Parámetro | Qué hace |
 |---|---|
-| `thetaMap`, `phiExp` | cómo se abre la flor. φ va de 90° en el centro a ~12° en el borde; `phiExp = 2.2` concentra la apertura en el último tercio, que es lo que hace que el perfil lateral sea un cuenco y no un embudo. **Es el knob principal** |
+| `whorls`, `whorlExp` | **la distribución de los pétalos**: en cuántos anillos (verticilos) se agrupan y cómo crece cada anillo hacia afuera. Los pétalos de un anillo comparten radio y se reparten el acimut en partes iguales; por eso el anillo se cierra y no quedan agujeros. Con el ángulo áureo puro pasaban 2.6 pétalos por vuelta y el 30 % exterior del radio quedaba vacío |
+| `thetaMap`, `phiExp` | cómo se abre la flor. φ va de 90° en el centro a ~55° en el borde; **es el knob principal** |
+| `phiDrop` | cuánto se cuelga el borde por debajo de la horizontal (ψ = φ − phiDrop·kh²) |
+| `curl`, `curlExp` | el **reflejo**: la espina se dobla hacia abajo al final del pétalo (ψ(q) = ψ(0) − curl·kh^1.6·q²). Sin esto los pétalos exteriores son un sombrero plano y queda un anillo hueco entre el anillo medio y el borde |
 | `chiMax`, `rbMin`, `rbMax`, `yTop`, `yDrop` | cúpula del receptáculo: dónde se atan los pétalos. Un perfil cónico (bases alineadas en una vertical) produce justo el cono que no quieres |
-| `l0`, `lBias`, `lExp` | longitud del pétalo: corto y erguido en el centro, largo y abierto en el borde |
-| `hExp > rExp` | el curl: la punta cae más rápido de lo que avanza, así que el pétalo se recurre en lugar de ser una rampa recta |
-| `wFrac`, `wTip`, `wMin`, `ringExp` | ancho. **El semiancho escala con `l0`, no con el radio global**: si escala con el radio, los 18 pétalos interiores se quedan todos clavados en `wMin` y amontonan el 60 % de los vértices en un radio de 2 |
-| `cup`, `psiOpen` | profundidad del cuenco y cuánto se abre el barrido de la sección (2π = tubo casi sellado, 0.58π = cuenco) |
+| `l0`, `lBias`, `lExp` | longitud del pétalo. `lBias` alto a propósito: si los pétalos del capullo son más cortos que los del centro, el capullo queda por debajo de ellos y la flor pierde el centro |
+| `hExp < rExp` | la altura sube antes que el radio ⇒ el pétalo se arquea por encima y se dobla al final |
+| `wFrac`, `wTip`, `wMin`, `ringExp` | ancho. **El semiancho escala con la longitud del propio pétalo, no con el radio global**: si escala con el radio, los 18 pétalos interiores se quedan todos clavados en `wMin` y amontonan el 60 % de los vértices en un radio de 2 |
+| `cup`, `psiOpen` | profundidad del cuenco y cuánto se abre el barrido de la sección (2π = tubo casi sellado, 0.62π = cuenco) |
 | `azJit`, `tw0`, `tw1`, `tw2` | ondulación y torción **deterministas** (sin `Math.random()` en ningún sitio) |
-| `petals`, `qSeg`, `arcSeg` | resolución. Alta = 34 × 4 × 112 ≈ 15 k vértices; baja ≈ 2.3 k |
+| `petals`, `qSeg`, `arcSeg` | resolución. Alta = 34 × 6 × 88 ≈ 18 k vértices; baja ≈ 4.7 k |
 
 Después de cambiar cualquiera de esto, corre `npm run validate:rose` y mira
 los renders ASCII. Es exactamente para lo que está.
@@ -144,7 +149,10 @@ X(θ) = 1 − ½·[(5/4)(1 − (θ mod 2π)/π)² − ¼]²     perfil de contor
 ```
 
 `φ` se lee como el ángulo de elevación del plano de cada pétalo: 90° en el
-centro (verticales, capullo), 12° en el borde (abiertos).
+centro (verticales, capullo), ~55° en el borde (abiertos). La elevación **no
+es constante a lo largo del pétalo**: al final se le resta el reflejo, de
+modo que el pétalo sale hacia arriba y se dobla hacia abajo — es lo que
+convierte el borde en pétalos maduros que se abren y se cuelgan.
 
 `X` **no** es una rosa multipétalo, y eso está verificado numéricamente en
 `validate:rose`: rango `[0.5, 1.0]`, dos crestas en `θ/π = 1 ± 1/√5`, una
@@ -159,19 +167,33 @@ independientes:
 3. toma `X(...)` como `z` directamente, y con `X ∈ [0.5, 1]` eso da un disco
    ondulado de media unidad de alto con `r` nunca asignado.
 
-La sustitución documentada en el propio archivo es una espiral filotáxica de
-cáscaras cóncavas sobre una cúpula:
+La sustitución documentada en el propio archivo son pétalos agrupados en
+**verticilos** sobre una cúpula:
 
 ```
 θ = 2π(n + q/2)                 X barre medio período por pétalo
-βₙ = n·π(3−√5) ≈ n·137.507°     ángulo áureo, sin costuras
+β = 2π(j + ρ_k)/m_k              los m_k pétalos del verticilo k, repartidos
 marco e1, e2, e3                 en forma cerrada, sin productos cruzados
 ```
 
+Por qué verticilos y no una espiral: con el ángulo áureo los pétalos avanzan
+uno detrás de otro y a la vez un poco más afuera, así que en cada radio sólo
+pasaban un par de pétalos, muy separados en acimut, y entre ellos quedaban
+huecos negros. Añadir pétalos no lo arregla —más pétalos es también más
+recorrido radial, y la proporción por vuelta se queda en 2.6—: medido, 180
+pétalos dejaron 14.6 % de hueco en la silueta, contra 25.9 % con 34. En
+verticilos, en cambio, los pétalos de un anillo comparten radio y se reparten
+el acimut en partes iguales, y el anillo se cierra.
+
 El marco merece una nota: el `e2 = up × e1` que se suele usar colapsa cuando
-`φ = 90°`, que es justo dentro del capullo. Aquí `e2 = (sinβ, 0, −cosβ)` es
+`ψ = 90°`, que es justo dentro del capullo. Aquí `e2 = (sinβ, 0, −cosβ)` es
 siempre horizontal, así que no hay ninguna orientación en la que el marco se
-degenera. Está verificado a 1e-12 en el validador.
+degenera. Está verificado a 1e-12 en el validador. Además `e3 = e1 × e2` es la
+componente "hacia arriba" del plano del pétalo, así que la cara convexa de
+cada pétalo es la que ve la cámara; y la orientación se decide **por pétalo**,
+con un criterio local (la normal mira hacia fuera de su propia espina), no con
+un test global de "hacia fuera del centro" que en una forma no convexa no
+significa nada.
 
 Las ecuaciones completas, incluida la parametrización final, se muestran en
 la aplicación (botón **π**) renderizadas con KaTeX.
@@ -255,7 +277,7 @@ bien.
 - **Rendimiento**: tier detectado una sola vez al arrancar (`low` / `mid` /
   `high`). El tier `low` desactiva las sombras — en móvil el coste real no
   son los triángulos sino la pasada de sombras — y baja el DPR a 1.5.
-  Máximo 15 513 vértices en `high`.
+  Máximo 18 156 vértices en `high`.
 - **`100dvh`**, `viewport-fit=cover`, `env(safe-area-inset-*)`, sin scroll.
 - **Audio**: nunca se reproduce nada automáticamente. Sin pista configurada
   en `AUDIO.trackUrl` el botón no aparece y no se carga ni un byte de audio.

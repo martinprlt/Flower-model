@@ -198,7 +198,7 @@ function gamma(buf) {
 // â”€â”€ main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const tier = process.argv[3] ?? 'high'
-const res = process.argv[4] ? JSON.parse(process.argv[4]) : { qSeg: 4, arcSeg: 90 }
+const res = process.argv[4] ? JSON.parse(process.argv[4]) : {}
 const params = { ...ROSE_PARAMS[tier], ...res }
 const g = buildRoseArrays(params, { skipNormalize: true })
 

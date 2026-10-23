@@ -52,14 +52,14 @@ export function MathematicalRose({
         core: PALETTE.core,
         rim: PALETTE.rim,
         glow: PALETTE.glow,
-        roughness: 0.55,
-        // Clearcoat bajo y muy rugoso: brillo de punta de pétalo sin plástico.
-        // El terciopelo lo aporta `sheen`, que es el BRDF correcto aquí.
-        clearcoat: 0.28,
-        clearcoatRoughness: 0.72,
-        sheen: 0.5,
-        sheenRoughness: 0.85,
-        emissiveIntensity: 0.12,
+        roughness: 0.78,
+        // Acabado carmesí aterciopelado: CERO laca plástica (clearcoat = 0),
+        // alta micro-rugosidad difusa y BRDF sheen de terciopelo completo.
+        clearcoat: 0.0,
+        clearcoatRoughness: 1.0,
+        sheen: 1.0,
+        sheenRoughness: 0.48,
+        emissiveIntensity: 0.06,
         base: core,
         band: RENDER.growthBand,
         transparent: true,

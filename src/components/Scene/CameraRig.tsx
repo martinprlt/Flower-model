@@ -83,18 +83,45 @@ export function CameraRig({
     camera.updateProjectionMatrix()
 
     if (!controls) return
-    controls.target.set(f.target[0], f.target[1], f.target[2])
-    targetV.current.set(f.target[0], f.target[1], f.target[2])
+    // Composición armónica: en vertical (móvil) y horizontal (escritorio),
+    // desplazamos suavemente el objetivo hacia abajo para que la flor viva en la
+    // zona superior y NUNCA se superponga con la dedicatoria en la zona inferior.
+    const isPortrait = aspect < 1
+    const yShift = isPortrait ? -bounds.radius * 0.24 : -bounds.radius * 0.10
+    const targetY = f.target[1] + yShift
+
+    controls.target.set(f.target[0], targetY, f.target[2])
+    targetV.current.set(f.target[0], targetY, f.target[2])
     controls.minDistance = f.distance * CAMERA.minDistanceScale
     controls.maxDistance = f.distance * CAMERA.maxDistanceScale
 
-    // Sólo se coloca de cero si el usuario todavía no la ha tocado: un
-    // resize no puede darle la vuelta a la flor que le estaba mirando.
     if (!touched.current) {
-      camera.position.set(f.position[0], f.position[1], f.position[2])
-      camera.lookAt(f.target[0], f.target[1], f.target[2])
+      camera.position.set(f.position[0], f.position[1] + yShift, f.position[2])
+      camera.lookAt(f.target[0], targetY, f.target[2])
     }
     controls.update()
+
+    ;(window as unknown as Record<string, unknown>).__ROSE_CAMERA__ = {
+      setAngles: (azDeg: number, elDeg: number) => {
+        touched.current = true
+        omega.current = 0
+        // Un encuadre pedido a mano cuenta como interacción: si no, el giro
+        // automático podía arrancar entre el setAngles y la captura y mover la
+        // cámara unos grados, arruinando la comparación píxel a píxel.
+        lastInteraction.current = performance.now()
+        const az = (azDeg * Math.PI) / 180
+        const el = (elDeg * Math.PI) / 180
+        const d = f.distance
+        camera.position.set(
+          f.target[0] + d * Math.cos(el) * Math.sin(az),
+          targetY + d * Math.sin(el),
+          f.target[2] + d * Math.cos(el) * Math.cos(az)
+        )
+        camera.lookAt(f.target[0], targetY, f.target[2])
+        controls.target.set(f.target[0], targetY, f.target[2])
+        controls.update()
+      },
+    }
   }, [bounds, camera, controls, size.width, size.height])
 
   // ── 'start' y 'end' son eventos de entrada del usuario, no de cambio ────

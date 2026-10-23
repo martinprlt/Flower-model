@@ -17,9 +17,14 @@ export function Dedication({ visible, durationMs }: { visible: boolean; duration
       {visible ? (
         <motion.div
           className="dedication"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
+          // x: '-50%' va AQUÍ y no en el CSS: Framer Motion escribe la
+          // propiedad `transform` en línea, y esa línea pisa el
+          // `translateX(-50%)` de la hoja de estilos. Con el desplazamiento
+          // dentro de la animación el bloque queda centrado de verdad; con
+          // el CSS solo, se quedaba desplazado media caja a la derecha.
+          initial={{ opacity: 0, x: '-50%', y: 10 }}
+          animate={{ opacity: 1, x: '-50%', y: 0 }}
+          exit={{ opacity: 0, x: '-50%' }}
           transition={{ duration, ease: [0.22, 0.61, 0.36, 1] }}
           aria-live="polite"
         >

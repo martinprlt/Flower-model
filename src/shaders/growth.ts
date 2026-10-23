@@ -124,7 +124,25 @@ const FRAG_COMMON = /* glsl */ `
 // matemático aPetal. ±14 %, suficiente para que unas capas se lean distintas
 // de otras sin que parezca un degradado pintado.
 const FRAG_COLOR = /* glsl */ `
-  diffuseColor.rgb *= mix(0.86, 1.14, vPetal) * (0.94 + 0.06 * sin(vPetal * 37.0));
+  // Gradiente botánico aterciopelado: centro carmesí oscuro profundo, cuerpo
+  // carmesí rico y bordes cálidos. Las variaciones son de baja frecuencia y
+  // deterministas: no hay ruido, sólo pétalos que no son idénticos.
+  vec3 cCore = vec3(0.22, 0.02, 0.05);
+  vec3 cDeep = vec3(0.15, 0.012, 0.035);
+  vec3 cPetal = diffuseColor.rgb;
+  vec3 cEdge = vec3(0.78, 0.14, 0.22);
+
+  float pVar = 0.93
+    + 0.10 * sin(vPetal * 41.0 + 1.7)
+    + 0.035 * sin(vPetal * 13.0 + vProg * 7.0 + 0.6);
+  float grad = smoothstep(0.0, 0.85, vProg);
+  vec3 velvetBase = mix(cCore, cPetal, 0.36 + 0.64 * grad);
+
+  // Un poco más de borgoña en las zonas profundas, con fase propia por pétalo.
+  float depthTone = 0.5 + 0.5 * sin(vPetal * 23.0 + 2.1);
+  velvetBase = mix(velvetBase, cDeep, 0.10 * (1.0 - grad) * depthTone);
+  velvetBase = mix(velvetBase, cEdge, 0.16 * pow(grad, 2.0));
+  diffuseColor.rgb = velvetBase * pVar;
 `
 
 // Dos adiciones al emisivo, ambas deliberadamente pequeñas:
@@ -235,9 +253,16 @@ export function createRoseMaterials(o: SurfaceOptions): RoseMaterials {
     if (!shader.fragmentShader.includes('#include <emissivemap_fragment>')) {
       throw new Error('growth.ts: falta #include <emissivemap_fragment>.')
     }
+    if (!shader.fragmentShader.includes('#include <roughnessmap_fragment>')) {
+      throw new Error('growth.ts: falta #include <roughnessmap_fragment>.')
+    }
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${FRAG_COMMON}`)
       .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`)
+      .replace(
+        '#include <roughnessmap_fragment>',
+        `#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor * (0.94 + 0.08 * sin(vPetal * 19.0 + 0.8)), 0.55, 0.95);`,
+      )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>\n${FRAG_EMISSIVE}`,

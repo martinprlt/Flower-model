@@ -20,9 +20,12 @@ export function InteractionHint({ visible, onDismiss }: InteractionHintProps) {
       {visible ? (
         <motion.div
           className="hint"
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
+          // x: '-50%' dentro de la animación, no en el CSS: Framer Motion
+          // escribe `transform` en línea y esa línea pisa el
+          // `translateX(-50%)` de la hoja de estilos.
+          initial={{ opacity: 0, x: '-50%', y: 6 }}
+          animate={{ opacity: 1, x: '-50%', y: 0 }}
+          exit={{ opacity: 0, x: '-50%', y: -4 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
           onPointerDown={onDismiss}
         >
