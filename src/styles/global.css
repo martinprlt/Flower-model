@@ -7,12 +7,12 @@
  * touch-action sobre el lienzo.
  */
 
-:root {
-  --bg: #070304;
-  --ink: #ecdcdc;
-  --ink-soft: #b79ba1;
-  --ink-faint: #7c5f66;
-  --accent: #e14b63;
+  :root {
+    --bg: #090205;
+    --ink: #f2e0e3;
+    --ink-soft: #d3b8bd;
+    --ink-faint: #9a6f78;
+    --accent: #ff5a75;
 
   /* Serif editorial: los conserjes del sistema ya tienen buen gusto. */
   --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua',
@@ -37,7 +37,10 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--bg);
+  background: radial-gradient(ellipse 120% 100% at 50% 0%, rgba(255, 90, 117, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 140% 120% at 50% 100%, rgba(58, 3, 13, 0.25) 0%, transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

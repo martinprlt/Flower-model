@@ -54,11 +54,11 @@ export const PALETTE = {
   rim: '#FF758C',
 
   /** Fondo: degradado vertical de tres paradas. Nunca negro puro. */
-  bgTop: '#070304',
-  bgMid: '#100408',
-  bgBottom: '#16060B',
-  /** Halo radial detrás de la rosa. */
-  halo: '#3A0A16',
+  bgTop: '#090205',
+  bgMid: '#14060B',
+  bgBottom: '#1A0810',
+  /** Halo radial detrás de la rosa. Más luminoso para dar brillo desde el interior. */
+  halo: '#5A1526',
 
   /** Estructura matemática visible. */
   wire: '#FF7A8C',
@@ -146,11 +146,11 @@ export const RENDER = {
   dprMaxLow: 1.5,
   /** Exposición: el control más importante para que el carmesí no suba a rosa. */
   toneMappingExposure: 1.2,
-  /** Intensidad del bloom. Muy sutil a propósito. */
-  bloomIntensity: 0.3,
-  bloomThreshold: 0.45,
-  bloomSmoothing: 0.4,
-  bloomRadius: 0.62,
+  /** Intensidad del bloom. Más brillante desde el interior. */
+  bloomIntensity: 0.42,
+  bloomThreshold: 0.38,
+  bloomSmoothing: 0.46,
+  bloomRadius: 0.78,
   /** Vignette. */
   vignetteOffset: 0.28,
   vignetteDarkness: 0.72,

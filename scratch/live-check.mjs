@@ -1,0 +1,21 @@
+import puppeteer from 'puppeteer-core'
+const EDGE='C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+const browser=await puppeteer.launch({executablePath:EDGE,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--enable-unsafe-swiftshader','--enable-webgl','--ignore-gpu-blocklist']})
+const page=await browser.newPage()
+await page.setViewport({width:1920,height:1080,deviceScaleFactor:1})
+await page.evaluateOnNewDocument(()=>{Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>16});Object.defineProperty(navigator,'deviceMemory',{get:()=>8})})
+const errors=[]
+page.on('console',m=>{if(m.type()==='error')errors.push(m.text())})
+page.on('pageerror',e=>errors.push('pageerror: '+e.message))
+page.on('requestfailed',r=>errors.push('requestfailed: '+r.url()+' '+(r.failure()?.errorText||'')))
+const resp=await page.goto('https://martinprlt.github.io/Flower-model/?skip=true&debug=true',{waitUntil:'networkidle2',timeout:60000})
+console.log('status',resp?.status())
+await page.waitForFunction('!!window.__ROSE_DEBUG__ && !!document.querySelector("canvas")',{timeout:30000})
+await new Promise(r=>setTimeout(r,2500))
+const info=await page.evaluate(()=>({debug:window.__ROSE_DEBUG__, canvas:!!document.querySelector('canvas'), title:document.title, body:document.body.innerText.slice(0,120)}))
+console.log(JSON.stringify(info,null,2))
+await page.screenshot({path:'analysis/live-pages.png',type:'png'})
+console.log('errors',errors.length)
+for(const e of errors.slice(0,10))console.log('-',e)
+await browser.close()
+if(errors.length)process.exit(1)

@@ -21,10 +21,10 @@ export function Effects({ enabled }: { enabled: boolean }) {
     <EffectComposer multisampling={0}>
       <Bloom
         mipmapBlur
-        intensity={RENDER.bloomIntensity}
-        luminanceThreshold={RENDER.bloomThreshold}
+        intensity={RENDER.bloomIntensity * 1.4}
+        luminanceThreshold={RENDER.bloomThreshold * 0.9}
         luminanceSmoothing={RENDER.bloomSmoothing}
-        radius={RENDER.bloomRadius}
+        radius={RENDER.bloomRadius * 1.25}
       />
     </EffectComposer>
   )

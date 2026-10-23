@@ -1,0 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { inflateSync } from 'node:zlib'
+function decodePng(path){const buf=readFileSync(path);let off=8,W=0,H=0,bd=0,ct=0,il=0;const idat=[];while(off<buf.length){const len=buf.readUInt32BE(off);const type=buf.toString('ascii',off+4,off+8);const data=buf.subarray(off+8,off+8+len);if(type==='IHDR'){W=data.readUInt32BE(0);H=data.readUInt32BE(4);bd=data[8];ct=data[9];il=data[12]}else if(type==='IDAT')idat.push(data);else if(type==='IEND')break;off+=12+len}const ch={0:1,2:3,4:2,6:4}[ct];const raw=inflateSync(Buffer.concat(idat));const stride=W*ch;const out=Buffer.alloc(W*H*3);const prev=Buffer.alloc(stride),cur=Buffer.alloc(stride);let p=0;for(let y=0;y<H;y++){const f=raw[p++];raw.copy(cur,0,p,p+stride);p+=stride;for(let i=0;i<stride;i++){const a=i>=ch?cur[i-ch]:0,b=prev[i],c=i>=ch?prev[i-ch]:0;let v=cur[i];if(f===1)v=(v+a)&255;else if(f===2)v=(v+b)&255;else if(f===3)v=(v+((a+b)>>1))&255;else if(f===4){const pa=Math.abs(b-c),pb=Math.abs(a-c),pc=Math.abs(a+b-2*c);const pr=pa<=pb&&pa<=pc?a:pb<=pc?b:c;v=(v+pr)&255}cur[i]=v}for(let x=0;x<W;x++){const si=x*ch,di=(y*W+x)*3;if(ch>=3){out[di]=cur[si];out[di+1]=cur[si+1];out[di+2]=cur[si+2]}else out[di]=out[di+1]=out[di+2]=cur[si]}cur.copy(prev)}return{W,H,data:out}}
+for (const file of ['capture-tres-cuartos.png','capture-frontal.png','capture-superior.png','capture-lateral.png']) {
+  const {W,H,data}=decodePng(file)
+  let minX=W,maxX=0,minY=H,maxY=0,n=0,sx=0,sy=0
+  for(let y=0;y<Math.floor(H*0.72);y++)for(let x=0;x<W;x++){const i=(y*W+x)*3;const L=0.2126*data[i]+0.7152*data[i+1]+0.0722*data[i+2];if(L>18&&data[i]>35){n++;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;sx+=x;sy+=y}}
+  console.log(file, 'bright px', n, 'bbox', [minX,maxX,minY,maxY], 'centroid', (sx/n).toFixed(0), (sy/n).toFixed(0), 'windowsize', W, H)
+}

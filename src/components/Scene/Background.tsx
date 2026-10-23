@@ -27,6 +27,7 @@ export function Background({ haloDir }: { haloDir: [number, number, number] }) {
       [1, new Color(PALETTE.bgTop)],
     ]
     const halo = new Color(PALETTE.halo)
+    const innerGlow = new Color('#ff6b85')
     const hx = haloDir[0], hy = haloDir[1], hz = haloDir[2]
     const hl = Math.hypot(hx, hy, hz) || 1
     const ax = hx / hl, ay = hy / hl, az = hz / hl
@@ -44,16 +45,19 @@ export function Background({ haloDir }: { haloDir: [number, number, number] }) {
       // repartidos en vez de tener un escalón en el ecuador.
       const t = h < 0 ? h + 1 : h
       if (h >= 0) {
-        const k = smoothstep(0.45, 1, h)
+        const k = smoothstep(0.35, 1, h)
         tmp.copy(stops[1][1]).lerp(stops[2][1], k)
       } else {
-        const k = smoothstep(0, 0.55, t)
+        const k = smoothstep(0, 0.65, t)
         tmp.copy(stops[0][1]).lerp(stops[1][1], k)
       }
       // Halo: cuadrado del producto punto con la dirección de la rosa, con la
       // potencia alta para que no alcance media esfera.
       const d = (x / len) * ax + (y / len) * ay + (z / len) * az
-      if (d > 0) tmp.lerp(halo, Math.pow(d, 8) * 0.18)
+      if (d > 0) {
+        tmp.lerp(halo, Math.pow(d, 6) * 0.32)
+        tmp.lerp(innerGlow, Math.pow(d, 10) * 0.16)
+      }
 
       colors[i * 3] = tmp.r
       colors[i * 3 + 1] = tmp.g
